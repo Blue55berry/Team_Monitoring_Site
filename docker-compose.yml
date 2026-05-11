@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # MongoDB
+  mongodb:
+    image: mongo:7
+    container_name: workforce-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: workforce-intelligence
+    restart: unless-stopped
+
+  # Backend API
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: workforce-server
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongodb:27017/workforce-intelligence
+      - JWT_SECRET=your-production-jwt-secret
+      - JWT_REFRESH_SECRET=your-production-refresh-secret
+      - CLIENT_URL=http://localhost:5173
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  # Frontend
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: workforce-client
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
