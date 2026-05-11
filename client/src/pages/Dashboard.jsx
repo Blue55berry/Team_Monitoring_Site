@@ -71,7 +71,7 @@ const EmployeeDashboard = ({ user }) => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">
-            Welcome back, {user?.firstName}! 👋
+            Welcome back, {user?.firstName}! 
           </h1>
           <p className="text-surface-400 mt-1">Here is your personal workspace overview.</p>
         </div>
@@ -206,7 +206,7 @@ const Dashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">
-            Welcome back, {user?.firstName}! 👋
+            Welcome back, {user?.firstName}! 
           </h1>
           <p className="text-surface-400 mt-1">Here's what's happening with your workforce today.</p>
         </div>

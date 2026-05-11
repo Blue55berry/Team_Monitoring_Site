@@ -1,10 +1,6 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import {
-  LayoutDashboard, Users, FolderKanban, CheckSquare, Building2,
-  CalendarCheck, UserCircle, Briefcase, Bell, MessageSquare,
-  Settings, LogOut, Bot, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calculator
-} from 'lucide-react';
+import { LayoutDashboard, Users, FolderKanban, CheckSquare, Building2, CalendarCheck, UserCircle, Briefcase, Bell, MessageSquare, Settings, LogOut, Bot, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calculator } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
@@ -17,14 +13,10 @@ const navItems = [
   
   // Account Panel
   { 
-    path: '/accounts-group', 
+    path: '/payroll', 
     icon: Calculator, 
     label: 'Accounts Panel', 
-    roles: ['admin', 'account', 'accounts'],
-    subItems: [
-      { path: '/payroll', label: 'Salary & Payroll' },
-      { path: '/dashboard', label: 'Accounts Overview' }
-    ]
+    roles: ['account', 'accounts']
   },
   
   // Team Manager & Leader Panel
@@ -54,6 +46,7 @@ const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState('');
   const location = useLocation();
+  const navigate = useNavigate();
 
   const filteredNav = navItems.filter(item => item.roles.includes(user?.role?.toLowerCase() || 'employee'));
 

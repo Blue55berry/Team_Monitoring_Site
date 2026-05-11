@@ -151,6 +151,9 @@ const LoginPage = () => {
               <div className="space-y-1 text-xs text-primary-600 dark:text-primary-400">
                 <p><span className="font-medium">Admin:</span> admin@workforce.com</p>
                 <p><span className="font-medium">HR:</span> sarah@workforce.com</p>
+                <p><span className="font-medium">Manager:</span> james@workforce.com</p>
+                <p><span className="font-medium">Team Lead:</span> team_leader@workforce.com</p>
+                <p><span className="font-medium">Account:</span> account@workforce.com</p>
                 <p><span className="font-medium">Password:</span> password123</p>
               </div>
             </div>

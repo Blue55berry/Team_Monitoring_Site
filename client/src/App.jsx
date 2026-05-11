@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import EmployeesPage from './pages/EmployeesPage';
 import DepartmentsPage from './pages/DepartmentsPage';
 import ProjectsPage from './pages/ProjectsPage';
+import ProjectDetailsPage from './pages/ProjectDetailsPage';
 import TasksPage from './pages/TasksPage';
 import ClientsPage from './pages/ClientsPage';
 import AttendancePage from './pages/AttendancePage';
@@ -54,6 +55,7 @@ function AppRoutes() {
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="departments" element={<DepartmentsPage />} />
         <Route path="projects" element={<ProjectsPage />} />
+        <Route path="projects/:id" element={<ProjectDetailsPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="clients" element={<ClientsPage />} />
         <Route path="attendance" element={<AttendancePage />} />

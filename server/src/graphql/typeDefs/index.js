@@ -6,6 +6,8 @@ const typeDefs = `#graphql
     employee
     client
     manager
+    account
+    team_leader
   }
 
   enum RAGStatus {

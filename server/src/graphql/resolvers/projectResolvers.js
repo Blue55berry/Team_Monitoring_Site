@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql';
-import { Project, Task, Employee, Client } from '../../models/index.js';
+import { Project, Task, Employee, Client, Notification } from '../../models/index.js';
 import { requireAuth, requireManagement } from '../../middleware/rbac.js';
 
 const projectResolvers = {
@@ -46,6 +46,12 @@ const projectResolvers = {
     updateProject: async (_, { id, input }, { user }) => {
       requireManagement(user);
       
+      // Fetch the old project to compare team members
+      const oldProject = await Project.findById(id).populate({ path: 'team', populate: { path: 'userId' } });
+      if (!oldProject) {
+        throw new GraphQLError('Project not found', { extensions: { code: 'NOT_FOUND' } });
+      }
+
       const updateData = { ...input };
       if (updateData.status) {
         updateData.status = updateData.status.replace('_', '-');
@@ -56,8 +62,32 @@ const projectResolvers = {
         .populate({ path: 'team', populate: { path: 'userId' } })
         .populate({ path: 'projectManager', populate: { path: 'userId' } });
       
-      if (!project) {
-        throw new GraphQLError('Project not found', { extensions: { code: 'NOT_FOUND' } });
+      // Notify existing members if new members are added
+      if (input.team && oldProject.team) {
+        const oldTeamIds = oldProject.team.map(emp => emp._id.toString());
+        const newTeamIds = input.team.map(id => id.toString());
+        
+        const addedMemberIds = newTeamIds.filter(id => !oldTeamIds.includes(id));
+        
+        if (addedMemberIds.length > 0) {
+          const addedEmployees = project.team.filter(emp => addedMemberIds.includes(emp._id.toString()));
+          const addedNames = addedEmployees.map(emp => `${emp.userId?.firstName} ${emp.userId?.lastName}`).join(', ');
+          
+          const existingEmployees = oldProject.team;
+          
+          const notificationPromises = existingEmployees.map(emp => {
+            if (!emp.userId) return Promise.resolve();
+            return new Notification({
+              recipient: emp.userId._id,
+              type: 'project',
+              title: 'Team Update',
+              message: `${addedNames} joined the project: ${project.name}.`,
+              link: `/projects/${project._id}`
+            }).save();
+          });
+          
+          await Promise.all(notificationPromises);
+        }
       }
       
       return project;

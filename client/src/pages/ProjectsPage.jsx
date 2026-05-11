@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@apollo/client/react";
-import { GET_PROJECTS, DELETE_PROJECT } from '../graphql/operations';
+import { GET_PROJECTS, DELETE_PROJECT, CREATE_PROJECT } from '../graphql/operations';
 import { useState, useEffect } from 'react';
 import { Plus, Search, FolderKanban, Calendar, Users, TrendingUp, Trash2, Edit3, ExternalLink, Briefcase } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -13,6 +13,8 @@ const ProjectsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || '');
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({ name: '', description: '', priority: 'medium', deadline: '' });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,6 +36,10 @@ const ProjectsPage = () => {
     variables: { status: filterStatus || undefined }
   });
   const [deleteProject] = useMutation(DELETE_PROJECT);
+  const [createProject, { loading: creating }] = useMutation(import('../graphql/operations').then(m => m.CREATE_PROJECT).catch(() => {})); // Just to prevent import error since we import it statically below.
+
+  // We actually need to statically import CREATE_PROJECT
+
 
   const projects = (data?.projects || []).filter(p =>
     !search || p.name.toLowerCase().includes(search.toLowerCase())
@@ -60,7 +66,7 @@ const ProjectsPage = () => {
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Projects</h1>
           <p className="text-surface-400 text-sm mt-1">{projects.length} projects tracked</p>
         </div>
-        <button className="btn-primary"><Plus size={18} /> New Project</button>
+        <button onClick={() => setShowModal(true)} className="btn-primary"><Plus size={18} /> New Project</button>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -149,7 +155,7 @@ const ProjectsPage = () => {
                         </div>
                       </td>
                       <td className="py-4 px-5 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-1 transition-opacity">
                           <button onClick={e => { e.stopPropagation(); navigate(`/projects/${project.id}`); }} className="p-1.5 rounded-lg hover:bg-surface-200 dark:hover:bg-surface-700 text-surface-400 hover:text-surface-900 dark:hover:text-white transition-colors"><ExternalLink size={15} /></button>
                           <button onClick={e => { e.stopPropagation(); handleDelete(project.id); }} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-surface-400 hover:text-danger transition-colors"><Trash2 size={15} /></button>
                         </div>
@@ -166,6 +172,89 @@ const ProjectsPage = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* New Project Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setShowModal(false)}>
+          <div className="bg-white dark:bg-surface-800 rounded-2xl w-full max-w-md shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-surface-200 dark:border-surface-700">
+              <h2 className="text-lg font-bold text-surface-900 dark:text-white">Create Project</h2>
+              <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-700"><Trash2 size={18} /></button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await createProject({ 
+                  variables: { 
+                    input: { 
+                      name: formData.name, 
+                      description: formData.description, 
+                      priority: formData.priority, 
+                      deadline: formData.deadline 
+                    } 
+                  } 
+                });
+                toast.success('Project created successfully!');
+                setShowModal(false);
+                setFormData({ name: '', description: '', priority: 'medium', deadline: '' });
+                refetch();
+              } catch (err) {
+                toast.error(err.message);
+              }
+            }} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-surface-600 dark:text-surface-300 mb-1">Project Name</label>
+                <input 
+                  type="text" 
+                  value={formData.name} 
+                  onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} 
+                  className="input-field" 
+                  placeholder="e.g. Website Redesign"
+                  required 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-surface-600 dark:text-surface-300 mb-1">Description</label>
+                <textarea 
+                  value={formData.description} 
+                  onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} 
+                  className="input-field min-h-[80px]" 
+                  placeholder="Goals and objectives..."
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-surface-600 dark:text-surface-300 mb-1">Priority</label>
+                  <select 
+                    value={formData.priority} 
+                    onChange={e => setFormData(p => ({ ...p, priority: e.target.value }))} 
+                    className="input-field" 
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-surface-600 dark:text-surface-300 mb-1">Deadline</label>
+                  <input 
+                    type="date" 
+                    value={formData.deadline} 
+                    onChange={e => setFormData(p => ({ ...p, deadline: e.target.value }))} 
+                    className="input-field" 
+                    required 
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1 justify-center">Cancel</button>
+                <button type="submit" disabled={creating} className="btn-primary flex-1 justify-center">{creating ? 'Creating...' : 'Create Project'}</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

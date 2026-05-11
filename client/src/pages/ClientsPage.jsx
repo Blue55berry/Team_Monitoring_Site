@@ -91,7 +91,7 @@ const ClientsPage = () => {
                       )}
                     </td>
                     <td className="py-3.5 px-5 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-1 transition-opacity">
                         <button className="p-1.5 rounded-lg hover:bg-surface-200 dark:hover:bg-surface-700 text-surface-400 hover:text-surface-900 dark:hover:text-white transition-colors"><Edit3 size={15} /></button>
                         <button onClick={() => handleDelete(client.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-surface-400 hover:text-danger transition-colors"><Trash2 size={15} /></button>
                       </div>

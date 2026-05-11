@@ -45,7 +45,9 @@ const seed = async () => {
       { firstName: 'Michael', lastName: 'Brown', email: 'michael@workforce.com', password: hashedPassword, role: 'employee' },
       { firstName: 'Lisa', lastName: 'Taylor', email: 'lisa@workforce.com', password: hashedPassword, role: 'employee' },
       { firstName: 'David', lastName: 'Martinez', email: 'david@workforce.com', password: hashedPassword, role: 'employee' },
-      { firstName: 'Anna', lastName: 'Johnson', email: 'anna@workforce.com', password: hashedPassword, role: 'employee' }
+      { firstName: 'Anna', lastName: 'Johnson', email: 'anna@workforce.com', password: hashedPassword, role: 'employee' },
+      { firstName: 'Accountant', lastName: 'User', email: 'account@workforce.com', password: hashedPassword, role: 'account' },
+      { firstName: 'Robert', lastName: 'King', email: 'team_leader@workforce.com', password: hashedPassword, role: 'team_leader' }
     ]);
     console.log('Created users');
 
@@ -57,7 +59,8 @@ const seed = async () => {
       { userId: users[4]._id, employeeId: 'EMP-00004', designation: 'Backend Developer', department: departments[0]._id, salary: { base: 80000, bonus: 4000, deductions: 2000 }, skills: ['Node.js', 'Python', 'MongoDB'], ragStatus: 'amber', performanceScore: 65 },
       { userId: users[5]._id, employeeId: 'EMP-00005', designation: 'UI/UX Designer', department: departments[1]._id, salary: { base: 70000, bonus: 3000, deductions: 1500 }, skills: ['Figma', 'Adobe XD', 'Prototyping'], ragStatus: 'green', performanceScore: 85 },
       { userId: users[6]._id, employeeId: 'EMP-00006', designation: 'Marketing Specialist', department: departments[2]._id, salary: { base: 60000, bonus: 2000, deductions: 1000 }, skills: ['SEO', 'Content Marketing', 'Analytics'], ragStatus: 'red', performanceScore: 45 },
-      { userId: users[7]._id, employeeId: 'EMP-00007', designation: 'Sales Executive', department: departments[4]._id, salary: { base: 55000, bonus: 8000, deductions: 1000 }, skills: ['Negotiation', 'CRM', 'Cold Outreach'], ragStatus: 'green', performanceScore: 82 }
+      { userId: users[7]._id, employeeId: 'EMP-00007', designation: 'Sales Executive', department: departments[4]._id, salary: { base: 55000, bonus: 8000, deductions: 1000 }, skills: ['Negotiation', 'CRM', 'Cold Outreach'], ragStatus: 'green', performanceScore: 82 },
+      { userId: users[9]._id, employeeId: 'EMP-00008', designation: 'Development Team Leader', department: departments[0]._id, salary: { base: 100000, bonus: 8000, deductions: 2500 }, skills: ['Leadership', 'Agile', 'System Architecture'], ragStatus: 'green', performanceScore: 94 }
     ]);
     console.log('Created employees');
 
@@ -125,6 +128,8 @@ const seed = async () => {
     console.log('  Admin:    admin@workforce.com / password123');
     console.log('  HR:       sarah@workforce.com / password123');
     console.log('  Manager:  james@workforce.com / password123');
+    console.log('  Team Lead: team_leader@workforce.com / password123');
+    console.log('  Account:  account@workforce.com / password123');
     console.log('  Employee: emily@workforce.com / password123\n');
 
     process.exit(0);

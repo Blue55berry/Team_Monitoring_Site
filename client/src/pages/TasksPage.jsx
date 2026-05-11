@@ -1,8 +1,9 @@
 import { useQuery, useMutation } from "@apollo/client/react";
-import { GET_TASKS, UPDATE_TASK, GET_PROJECTS } from '../graphql/operations';
+import { GET_TASKS, UPDATE_TASK, GET_PROJECTS, CREATE_TASK } from '../graphql/operations';
 import { useState } from 'react';
-import { Plus, Search, Filter, Calendar, Clock, User } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Clock, User, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 
 const COLUMNS = [
   { id: 'todo', label: 'To Do', color: '#94a3b8' },
@@ -39,6 +40,21 @@ const TasksPage = () => {
     } catch (err) { console.error(err); }
   };
 
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({ title: '', priority: 'medium', projectId: '' });
+  const [createTask, { loading: creating }] = useMutation(CREATE_TASK);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await createTask({ variables: { input: { title: formData.title, priority: formData.priority, project: formData.projectId } } });
+      toast.success('Task created successfully!');
+      setShowModal(false);
+      setFormData({ title: '', priority: 'medium', projectId: '' });
+      refetch();
+    } catch (err) { toast.error(err.message); }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -47,7 +63,7 @@ const TasksPage = () => {
           <p className="text-surface-400 text-sm mt-1">{allTasks.length} tasks across all projects</p>
         </div>
         {canCreateTask && (
-          <button className="btn-primary shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
+          <button onClick={() => setShowModal(true)} className="btn-primary shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
             <Plus size={18} /> New Task
           </button>
         )}
@@ -140,6 +156,61 @@ const TasksPage = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* New Task Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setShowModal(false)}>
+          <div className="bg-white dark:bg-surface-800 rounded-2xl w-full max-w-md shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-surface-200 dark:border-surface-700">
+              <h2 className="text-lg font-bold text-surface-900 dark:text-white">Create Task</h2>
+              <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-700"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-surface-600 dark:text-surface-300 mb-1">Task Title</label>
+                <input 
+                  type="text" 
+                  value={formData.title} 
+                  onChange={e => setFormData(p => ({ ...p, title: e.target.value }))} 
+                  className="input-field" 
+                  placeholder="e.g. Design Homepage"
+                  required 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-surface-600 dark:text-surface-300 mb-1">Project</label>
+                  <select 
+                    value={formData.projectId} 
+                    onChange={e => setFormData(p => ({ ...p, projectId: e.target.value }))} 
+                    className="input-field" 
+                  >
+                    <option value="">Select Project</option>
+                    {(projectsData?.projects || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-surface-600 dark:text-surface-300 mb-1">Priority</label>
+                  <select 
+                    value={formData.priority} 
+                    onChange={e => setFormData(p => ({ ...p, priority: e.target.value }))} 
+                    className="input-field" 
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1 justify-center">Cancel</button>
+                <button type="submit" disabled={creating} className="btn-primary flex-1 justify-center">{creating ? 'Creating...' : 'Create Task'}</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
