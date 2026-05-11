@@ -1,10 +1,10 @@
 import { useQuery } from "@apollo/client/react";
-import { GET_DASHBOARD_STATS, GET_MY_TASKS } from '../graphql/operations';
+import { GET_DASHBOARD_STATS, GET_MY_TASKS, GET_EMPLOYEES } from '../graphql/operations';
 import { useAuth } from '../context/AuthContext';
 import {
   Users, FolderKanban, CheckSquare, Briefcase,
   TrendingUp, Clock, UserCheck, CalendarX,
-  ArrowUpRight, ArrowDownRight
+  ArrowUpRight, ArrowDownRight, BarChart2, DollarSign
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -172,10 +172,118 @@ const EmployeeDashboard = ({ user }) => {
   );
 };
 
+const AccountDashboard = ({ user, stats }) => {
+  const { data: empData } = useQuery(GET_EMPLOYEES);
+  const attendanceData = stats?.monthlyAttendance || [];
+  
+  // Calculate quick payroll stat
+  const netDisbursal = (empData?.employees || []).reduce((acc, emp) => {
+    return acc + (emp.salary?.base || 0) + (emp.salary?.bonus || 0) - (emp.salary?.deductions || 0);
+  }, 0);
+
+  const formatCurrency = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">
+            Welcome back, {user?.firstName}!
+          </h1>
+          <p className="text-surface-400 mt-1">Here is your workforce attendance and financial overview.</p>
+        </div>
+        <div className="text-sm text-surface-400">
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="card bg-gradient-to-br from-primary-600 to-accent-600 border-0 text-white animate-slide-up">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-white/80 text-sm font-medium">Est. Net Disbursal</p>
+              <h3 className="text-3xl font-bold mt-1">{formatCurrency(netDisbursal)}</h3>
+            </div>
+            <div className="p-2 bg-white/20 rounded-lg backdrop-blur"><DollarSign size={20} /></div>
+          </div>
+          <p className="mt-3 text-xs text-white/70">Current month projection</p>
+        </div>
+        <StatCard icon={Users} label="Total Workforce" value={stats?.totalEmployees || 0} change="Active employees" changeType="up" color="bg-gradient-to-br from-blue-500 to-blue-600" delay={100} />
+        <StatCard icon={UserCheck} label="Present Today" value={stats?.presentToday || 0} change={`of ${stats?.totalEmployees || 0} total`} changeType="up" color="bg-gradient-to-br from-success to-emerald-600" delay={200} />
+        <StatCard icon={CalendarX} label="Pending Leaves" value={stats?.pendingLeaves || 0} change="Requires Review" changeType="down" color="bg-gradient-to-br from-warning to-orange-500" delay={300} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Monthly Attendance Trends */}
+        <div className="card lg:col-span-2 animate-slide-up" style={{ animationDelay: '400ms' }}>
+          <h3 className="font-semibold text-surface-900 dark:text-white mb-4">Workforce Attendance Trends</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={attendanceData}>
+              <defs>
+                <linearGradient id="presentGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="absentGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-200)" />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--color-surface-400)' }} />
+              <YAxis tick={{ fontSize: 12, fill: 'var(--color-surface-400)' }} />
+              <Tooltip contentStyle={{ background: 'var(--color-surface-800)', border: 'none', borderRadius: '12px', color: 'white' }} />
+              <Area type="monotone" dataKey="present" stroke="#10b981" fill="url(#presentGrad)" strokeWidth={3} name="Present" />
+              <Area type="monotone" dataKey="absent" stroke="#ef4444" fill="url(#absentGrad)" strokeWidth={2} name="Absent" />
+              <Line type="monotone" dataKey="late" stroke="#f59e0b" strokeWidth={2} dot={false} name="Late" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Recent HR Activity Feed */}
+        <div className="card animate-slide-up flex flex-col" style={{ animationDelay: '500ms' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-surface-900 dark:text-white">Recent Activity</h3>
+          </div>
+          <div className="flex-1 space-y-4 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+            {(stats?.recentActivities || []).filter(a => ['employee', 'attendance'].includes(a.type)).length === 0 ? (
+              <div className="text-center py-10 text-surface-400">
+                <Clock className="mx-auto mb-2 opacity-20" size={32} />
+                <p className="text-sm">No recent HR/Attendance activities</p>
+              </div>
+            ) : (
+              (stats?.recentActivities || []).filter(a => ['employee', 'attendance'].includes(a.type)).map((activity, i) => (
+                <div key={activity.id} className="flex gap-3 items-start">
+                  <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold ${
+                    activity.type === 'employee' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                    'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  }`}>
+                    {activity.type.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-surface-700 dark:text-surface-200 leading-snug">
+                      <span className="font-semibold text-surface-900 dark:text-white">{activity.user}</span> {activity.message.replace(activity.user, '').trim()}
+                    </p>
+                    <p className="text-[10px] text-surface-400 mt-1">
+                      {new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {activity.type}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Dashboard = () => {
   const { user } = useAuth();
   
   const isEmployee = user?.role?.toLowerCase() === 'employee';
+  const isAccount = ['account', 'accounts'].includes(user?.role?.toLowerCase());
 
   const { data, loading } = useQuery(GET_DASHBOARD_STATS, { skip: isEmployee });
   const stats = data?.dashboardStats;
@@ -190,6 +298,10 @@ const Dashboard = () => {
         <div className="w-10 h-10 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
       </div>
     );
+  }
+
+  if (isAccount) {
+    return <AccountDashboard user={user} stats={stats} />;
   }
 
   const taskChartData = stats?.tasksByStatus?.map(t => ({
