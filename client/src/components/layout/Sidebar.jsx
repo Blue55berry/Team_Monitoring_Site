@@ -16,13 +16,22 @@ const navItems = [
   { path: '/departments', icon: Building2, label: 'Departments', roles: ['admin', 'hr'] },
   
   // Account Panel
-  { path: '/payroll', icon: Calculator, label: 'Salary & Accounts', roles: ['admin', 'account', 'accounts'] },
+  { 
+    path: '/accounts-group', 
+    icon: Calculator, 
+    label: 'Accounts Panel', 
+    roles: ['admin', 'account', 'accounts'],
+    subItems: [
+      { path: '/payroll', label: 'Salary & Payroll' },
+      { path: '/dashboard', label: 'Accounts Overview' }
+    ]
+  },
   
   // Team Manager & Leader Panel
   { 
     path: '/projects', 
     icon: FolderKanban, 
-    label: 'Projects', 
+    label: 'Team & Projects', 
     roles: ['admin', 'team_manager', 'manager', 'team_leader', 'leader'],
     subItems: [
       { path: '/projects', label: 'All Projects' },
@@ -37,7 +46,7 @@ const navItems = [
   // Common / Employee
   { path: '/attendance', icon: CalendarCheck, label: 'Attendance', roles: ['admin', 'hr', 'team_manager', 'manager', 'team_leader', 'leader', 'account', 'accounts', 'employee'] },
   { path: '/leaves', icon: CalendarCheck, label: 'Leaves', roles: ['admin', 'hr', 'team_manager', 'manager', 'team_leader', 'leader', 'account', 'accounts', 'employee'] },
-  { path: '/ai-assistant', icon: Bot, label: 'AI Assistant', roles: ['admin', 'hr', 'team_manager', 'manager', 'team_leader', 'leader', 'account', 'accounts', 'employee'] },
+  { path: '/ai-assistant', icon: Bot, label: 'AI Assistant', roles: ['admin', 'hr', 'team_manager', 'manager', 'team_leader', 'leader', 'account', 'accounts'] },
 ];
 
 const Sidebar = () => {

@@ -41,52 +41,73 @@ const ClientsPage = () => {
       {loading ? (
         <div className="flex justify-center py-20"><div className="w-10 h-10 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {clients.map((client, i) => (
-            <div key={client.id} className="card group animate-slide-up" style={{ animationDelay: `${i * 50}ms` }}>
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-lg">
-                    {client.companyName[0]}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-surface-900 dark:text-white">{client.companyName}</h3>
-                    <p className="text-xs text-surface-400">{client.industry || 'N/A'}</p>
-                  </div>
-                </div>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${STATUS_BG[client.status]}`}>{client.status}</span>
-              </div>
-
-              <div className="space-y-2.5 text-sm">
-                <div className="flex items-center gap-2 text-surface-500"><User size={14} /> <span>{client.contactPerson}</span></div>
-                <div className="flex items-center gap-2 text-surface-500"><Mail size={14} /> <span className="truncate">{client.email}</span></div>
-                {client.phone && <div className="flex items-center gap-2 text-surface-500"><Phone size={14} /> <span>{client.phone}</span></div>}
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-surface-100 dark:border-surface-700 flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-surface-400">Contract Value</p>
-                  <p className="text-lg font-bold text-surface-900 dark:text-white">{formatCurrency(client.contractValue)}</p>
-                </div>
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold rag-${client.ragStatus}`}>
-                  <span className="w-2 h-2 rounded-full" style={{ background: RAG_COLORS[client.ragStatus] }} />
-                  {client.ragStatus}
-                </span>
-              </div>
-
-              {client.followUpDate && (
-                <div className="mt-3 flex items-center gap-1.5 text-xs text-warning">
-                  <Calendar size={12} />
-                  Follow-up: {new Date(parseInt(client.followUpDate) || client.followUpDate).toLocaleDateString()}
-                </div>
-              )}
-
-              <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button className="btn-secondary py-1.5 px-3 text-xs flex-1 justify-center"><Edit3 size={13} /> Edit</button>
-                <button onClick={() => handleDelete(client.id)} className="btn-danger py-1.5 px-3 text-xs"><Trash2 size={13} /></button>
-              </div>
-            </div>
-          ))}
+        <div className="card p-0 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead>
+                <tr className="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-700">
+                  <th className="py-3.5 px-5 font-semibold text-surface-500 uppercase tracking-wider text-[11px]">Client Company</th>
+                  <th className="py-3.5 px-5 font-semibold text-surface-500 uppercase tracking-wider text-[11px]">Contact</th>
+                  <th className="py-3.5 px-5 font-semibold text-surface-500 uppercase tracking-wider text-[11px]">Contract Value</th>
+                  <th className="py-3.5 px-5 font-semibold text-surface-500 uppercase tracking-wider text-[11px]">Status / Follow-up</th>
+                  <th className="py-3.5 px-5 font-semibold text-surface-500 uppercase tracking-wider text-[11px] text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
+                {clients.map((client, i) => (
+                  <tr key={client.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors animate-slide-up group" style={{ animationDelay: `${i * 30}ms` }}>
+                    <td className="py-3.5 px-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold shadow-sm flex-shrink-0">
+                          {client.companyName[0]}
+                        </div>
+                        <div>
+                          <p className="font-bold text-surface-900 dark:text-white leading-tight">{client.companyName}</p>
+                          <p className="text-xs text-surface-500 mt-0.5">{client.industry || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-5">
+                      <p className="text-sm font-medium text-surface-900 dark:text-white flex items-center gap-1.5"><User size={13} className="text-surface-400 flex-shrink-0"/> <span className="truncate">{client.contactPerson}</span></p>
+                      <p className="text-xs text-surface-500 flex items-center gap-1.5 mt-1"><Mail size={13} className="text-surface-400 flex-shrink-0"/> <span className="truncate">{client.email}</span></p>
+                    </td>
+                    <td className="py-3.5 px-5">
+                      <span className="font-bold text-surface-900 dark:text-white">
+                        {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(client.contractValue || 0)}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-5">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${STATUS_BG[client.status]}`}>{client.status}</span>
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold rag-${client.ragStatus}`}>
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: RAG_COLORS[client.ragStatus] }} />
+                          {client.ragStatus}
+                        </span>
+                      </div>
+                      {client.followUpDate && (
+                        <p className="text-[11px] text-surface-500 flex items-center gap-1 mt-1">
+                          <Calendar size={11} className="flex-shrink-0" /> {new Date(parseInt(client.followUpDate) || client.followUpDate).toLocaleDateString()}
+                        </p>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button className="p-1.5 rounded-lg hover:bg-surface-200 dark:hover:bg-surface-700 text-surface-400 hover:text-surface-900 dark:hover:text-white transition-colors"><Edit3 size={15} /></button>
+                        <button onClick={() => handleDelete(client.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-surface-400 hover:text-danger transition-colors"><Trash2 size={15} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {clients.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="py-12 text-center text-surface-400">
+                      <p className="font-medium">No clients found.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

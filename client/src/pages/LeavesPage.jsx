@@ -10,12 +10,13 @@ const STATUS_BG = { pending: 'bg-warning/10 text-warning', approved: 'bg-success
 
 const LeavesPage = () => {
   const { user } = useAuth();
-  const isAdmin = ['admin', 'hr'].includes(user?.role);
+  // Allow HR and Managers/Leaders to approve leaves. Prevent Admin.
+  const canApproveLeaves = ['team_manager', 'manager', 'team_leader', 'leader', 'hr'].includes(user?.role?.toLowerCase());
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ type: 'casual', startDate: '', endDate: '', reason: '' });
 
   const { data: myData, refetch: refetchMy } = useQuery(GET_MY_LEAVES);
-  const { data: allData, refetch: refetchAll } = useQuery(GET_LEAVES, { skip: !isAdmin, variables: { status: 'pending' } });
+  const { data: allData, refetch: refetchAll } = useQuery(GET_LEAVES, { skip: !canApproveLeaves, variables: { status: 'pending' } });
   const [requestLeave, { loading }] = useMutation(REQUEST_LEAVE);
   const [approveLeave] = useMutation(APPROVE_LEAVE);
   const [rejectLeave] = useMutation(REJECT_LEAVE);
@@ -47,13 +48,13 @@ const LeavesPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Leave Management</h1>
-          <p className="text-surface-400 text-sm mt-1">{isAdmin ? `${pendingLeaves.length} pending approvals` : `${myLeaves.length} leave requests`}</p>
+          <p className="text-surface-400 text-sm mt-1">{canApproveLeaves ? `${pendingLeaves.length} pending approvals` : `${myLeaves.length} leave requests`}</p>
         </div>
         <button onClick={() => setShowForm(true)} className="btn-primary"><Plus size={18} /> Request Leave</button>
       </div>
 
-      {/* Pending Approvals (Admin/HR) */}
-      {isAdmin && pendingLeaves.length > 0 && (
+      {/* Pending Approvals (Manager/HR) */}
+      {canApproveLeaves && pendingLeaves.length > 0 && (
         <div className="card">
           <h3 className="font-semibold text-surface-900 dark:text-white mb-4 flex items-center gap-2"><Clock size={18} className="text-warning" /> Pending Approvals</h3>
           <div className="space-y-3">

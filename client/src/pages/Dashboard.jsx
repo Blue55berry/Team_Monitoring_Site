@@ -1,5 +1,5 @@
 import { useQuery } from "@apollo/client/react";
-import { GET_DASHBOARD_STATS } from '../graphql/operations';
+import { GET_DASHBOARD_STATS, GET_MY_TASKS } from '../graphql/operations';
 import { useAuth } from '../context/AuthContext';
 import {
   Users, FolderKanban, CheckSquare, Briefcase,
@@ -41,10 +41,148 @@ const RAGBadge = ({ status }) => (
   </span>
 );
 
+const EmployeeDashboard = ({ user }) => {
+  const { data: tasksData, loading: tasksLoading } = useQuery(GET_MY_TASKS);
+  
+  const tasks = tasksData?.myTasks || [];
+  const todoCount = tasks.filter(t => t.status === 'todo').length;
+  const inProgressCount = tasks.filter(t => t.status === 'in-progress').length;
+  const completedCount = tasks.filter(t => t.status === 'completed').length;
+
+  const reviewCount = tasks.filter(t => t.status === 'review').length;
+  
+  const taskChartData = [
+    { name: 'To Do', value: todoCount, color: '#6366f1' },
+    { name: 'In Progress', value: inProgressCount, color: '#ec4899' },
+    { name: 'Review', value: reviewCount, color: '#f59e0b' },
+    { name: 'Completed', value: completedCount, color: '#10b981' }
+  ].filter(d => d.value > 0);
+
+  if (tasksLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="w-10 h-10 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">
+            Welcome back, {user?.firstName}! 👋
+          </h1>
+          <p className="text-surface-400 mt-1">Here is your personal workspace overview.</p>
+        </div>
+        <div className="text-sm text-surface-400">
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="card bg-gradient-to-br from-primary-500 to-primary-600 border-0 text-white animate-slide-up">
+          <p className="text-white/70 font-medium mb-1">To Do</p>
+          <p className="text-4xl font-bold">{todoCount}</p>
+        </div>
+        <div className="card bg-gradient-to-br from-accent-500 to-pink-600 border-0 text-white animate-slide-up" style={{ animationDelay: '100ms' }}>
+          <p className="text-white/70 font-medium mb-1">In Progress</p>
+          <p className="text-4xl font-bold">{inProgressCount}</p>
+        </div>
+        <div className="card bg-gradient-to-br from-success to-emerald-600 border-0 text-white animate-slide-up" style={{ animationDelay: '200ms' }}>
+          <p className="text-white/70 font-medium mb-1">Completed</p>
+          <p className="text-4xl font-bold">{completedCount}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Task Distribution Graph */}
+        <div className="card animate-slide-up" style={{ animationDelay: '300ms' }}>
+          <h3 className="font-semibold text-surface-900 dark:text-white mb-4">My Task Distribution</h3>
+          {taskChartData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={taskChartData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value" stroke="none">
+                    {taskChartData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: 'var(--color-surface-800)', border: 'none', borderRadius: '12px', color: 'white', fontSize: '13px' }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap gap-3 mt-2 justify-center">
+                {taskChartData.map((item, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-xs">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
+                    <span className="text-surface-500">{item.name}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-[200px] text-surface-400 text-sm">
+              No task data available
+            </div>
+          )}
+        </div>
+
+        {/* My Recent Tasks Table */}
+        <div className="card lg:col-span-2 animate-slide-up" style={{ animationDelay: '400ms' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-surface-900 dark:text-white">My Recent Tasks</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead>
+                <tr className="bg-surface-50 dark:bg-surface-800/50 border-b border-surface-200 dark:border-surface-700">
+                  <th className="py-3 px-4 font-semibold text-surface-500 uppercase tracking-wider text-[11px]">Task Name</th>
+                  <th className="py-3 px-4 font-semibold text-surface-500 uppercase tracking-wider text-[11px]">Project</th>
+                  <th className="py-3 px-4 font-semibold text-surface-500 uppercase tracking-wider text-[11px]">Priority</th>
+                  <th className="py-3 px-4 font-semibold text-surface-500 uppercase tracking-wider text-[11px]">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
+                {tasks.slice(0, 5).map(task => (
+                  <tr key={task.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors">
+                    <td className="py-3 px-4 font-medium text-surface-900 dark:text-white">{task.title}</td>
+                    <td className="py-3 px-4 text-surface-500 text-xs font-bold uppercase tracking-wider">{task.project?.name || 'N/A'}</td>
+                    <td className="py-3 px-4">
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-surface-700 dark:text-surface-300 capitalize">
+                        <span className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ background: RAG_COLORS[task.priority === 'critical' ? 'red' : task.priority === 'high' ? 'amber' : 'green'] || '#3b82f6' }} />
+                        {task.priority}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="px-2 py-1 rounded text-[10px] font-bold bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300 uppercase tracking-wider">
+                        {task.status.replace('-', ' ')}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {tasks.length === 0 && (
+                  <tr><td colSpan="4" className="py-8 text-center text-surface-400">No tasks assigned to you currently.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Dashboard = () => {
   const { user } = useAuth();
-  const { data, loading } = useQuery(GET_DASHBOARD_STATS);
+  
+  const isEmployee = user?.role?.toLowerCase() === 'employee';
+
+  const { data, loading } = useQuery(GET_DASHBOARD_STATS, { skip: isEmployee });
   const stats = data?.dashboardStats;
+
+  if (isEmployee) {
+    return <EmployeeDashboard user={user} />;
+  }
 
   if (loading) {
     return (
