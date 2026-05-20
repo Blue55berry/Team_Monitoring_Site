@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@apollo/client/react';
-import { GET_EMPLOYEES } from '../graphql/operations';
-import { Calculator, DollarSign, Download, Search, TrendingUp, TrendingDown, Building2, User, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { useQuery, useMutation } from '@apollo/client/react';
+import { GET_EMPLOYEES, UPDATE_EMPLOYEE } from '../graphql/operations';
+import { Calculator, DollarSign, Download, Search, TrendingUp, TrendingDown, Building2, User, ChevronRight, CheckCircle2, Edit2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
@@ -10,6 +10,9 @@ import autoTable from 'jspdf-autotable';
 const PayrollPage = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [editForm, setEditForm] = useState({ base: 0, bonus: 0, deductions: 0 });
+  const [toast, setToast] = useState(null);
 
   // Protect route
   if (!['admin', 'account'].includes(user?.role)) {
@@ -17,6 +20,9 @@ const PayrollPage = () => {
   }
 
   const { data, loading, error } = useQuery(GET_EMPLOYEES);
+  const [updateEmployee, { loading: updating }] = useMutation(UPDATE_EMPLOYEE, {
+    refetchQueries: [{ query: GET_EMPLOYEES }]
+  });
 
   const employees = data?.employees || [];
 
@@ -25,32 +31,27 @@ const PayrollPage = () => {
     let totalBase = 0;
     let totalBonus = 0;
     let totalDeductions = 0;
-    const departmentCost = {};
 
     employees.forEach(emp => {
       const base = emp.salary?.base || 0;
       const bonus = emp.salary?.bonus || 0;
       const deductions = emp.salary?.deductions || 0;
-      const net = base + bonus - deductions;
+      const presentDays = emp.attendanceSummary?.presentDays || 0;
+      const totalDays = emp.attendanceSummary?.totalDays || 30;
+      const proratedBase = totalDays > 0 ? (base * (presentDays / totalDays)) : 0;
+      const net = proratedBase + bonus - deductions;
 
-      totalBase += base;
+      totalBase += proratedBase;
       totalBonus += bonus;
       totalDeductions += deductions;
 
-      const deptName = emp.department?.name || 'Unassigned';
-      if (!departmentCost[deptName]) {
-        departmentCost[deptName] = { total: 0, count: 0, color: emp.department?.color || '#3b82f6' };
-      }
-      departmentCost[deptName].total += net;
-      departmentCost[deptName].count += 1;
     });
 
     return {
       netDisbursal: totalBase + totalBonus - totalDeductions,
       totalBase,
       totalBonus,
-      totalDeductions,
-      departmentCost: Object.entries(departmentCost).sort((a, b) => b[1].total - a[1].total)
+      totalDeductions
     };
   }, [employees]);
 
@@ -77,11 +78,14 @@ const PayrollPage = () => {
       const base = emp.salary?.base || 0;
       const bonus = emp.salary?.bonus || 0;
       const deductions = emp.salary?.deductions || 0;
-      const net = base + bonus - deductions;
+      const presentDays = emp.attendanceSummary?.presentDays || 0;
+      const totalDays = emp.attendanceSummary?.totalDays || 30;
+      const proratedBase = totalDays > 0 ? (base * (presentDays / totalDays)) : 0;
+      const net = proratedBase + bonus - deductions;
       return [
-        `${emp.userId?.firstName} ${emp.userId?.lastName}`,
-        emp.department?.name || 'N/A',
-        pdfFormatCurrency(base),
+        `${emp.userId?.firstName} ${emp.userId?.lastName} (${emp.userId?.role?.replace('_', ' ') || 'employee'})`,
+        `${presentDays}/${totalDays} Days`,
+        pdfFormatCurrency(proratedBase),
         `+${pdfFormatCurrency(bonus)}`,
         `-${pdfFormatCurrency(deductions)}`,
         pdfFormatCurrency(net)
@@ -90,7 +94,7 @@ const PayrollPage = () => {
 
     autoTable(doc, {
       startY: 30,
-      head: [['Employee Name', 'Department', 'Base Salary', 'Bonuses', 'Deductions', 'Net Payable']],
+      head: [['Employee Name', 'Attendance', 'Prorated Base', 'Bonuses', 'Deductions', 'Net Payable']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' },
@@ -104,6 +108,40 @@ const PayrollPage = () => {
     });
 
     doc.save(`Payroll_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const handleEditClick = (emp) => {
+    setEditingEmployee(emp);
+    setEditForm({
+      base: emp.salary?.base || 0,
+      bonus: emp.salary?.bonus || 0,
+      deductions: emp.salary?.deductions || 0,
+    });
+  };
+
+  const handleSaveSalary = async (e) => {
+    e.preventDefault();
+    try {
+      await updateEmployee({
+        variables: {
+          id: editingEmployee.id,
+          input: {
+            designation: editingEmployee.designation, // Required by schema
+            salary: {
+              base: parseFloat(editForm.base),
+              bonus: parseFloat(editForm.bonus),
+              deductions: parseFloat(editForm.deductions),
+            }
+          }
+        }
+      });
+      setEditingEmployee(null);
+      setToast({ type: 'success', message: 'Salary details updated successfully!' });
+      setTimeout(() => setToast(null), 3000);
+    } catch (err) {
+      console.error(err);
+      setToast({ type: 'error', message: err.message || 'Failed to update salary' });
+    }
   };
 
   if (loading) return <div className="flex justify-center py-20"><div className="w-10 h-10 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
@@ -159,38 +197,9 @@ const PayrollPage = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Department Wise Cost Breakdown */}
-        <div className="xl:col-span-1 space-y-4">
-          <h3 className="font-bold text-lg text-surface-900 dark:text-white flex items-center gap-2">
-            <Building2 size={20} className="text-primary-500" />
-            Department Wise Cost
-          </h3>
-          <div className="card p-0 overflow-hidden border border-surface-200 dark:border-surface-800">
-            <div className="divide-y divide-surface-100 dark:divide-surface-800/50 max-h-[500px] overflow-y-auto custom-scrollbar">
-              {metrics.departmentCost.map(([dept, stats]) => (
-                <div key={dept} className="p-4 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold text-surface-900 dark:text-white text-sm">{dept}</h4>
-                    <p className="text-xs text-surface-500 mt-1">{stats.count} Employees</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-sm text-surface-900 dark:text-white">{formatCurrency(stats.total)}</p>
-                    <div className="w-24 h-1.5 bg-surface-100 dark:bg-surface-800 rounded-full mt-2 overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${(stats.total / metrics.netDisbursal) * 100}%`, backgroundColor: stats.color }} />
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {metrics.departmentCost.length === 0 && (
-                <div className="p-8 text-center text-surface-400 text-sm">No department data available.</div>
-              )}
-            </div>
-          </div>
-        </div>
-
+      <div className="w-full">
         {/* Detailed Salary Matrix */}
-        <div className="xl:col-span-2 space-y-4">
+        <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <h3 className="font-bold text-lg text-surface-900 dark:text-white flex items-center gap-2">
               <Calculator size={20} className="text-accent-500" />
@@ -213,11 +222,12 @@ const PayrollPage = () => {
                 <thead className="bg-surface-50 dark:bg-surface-800/50 text-surface-500 dark:text-surface-400 border-b border-surface-200 dark:border-surface-800">
                   <tr>
                     <th className="py-3 px-4 font-medium whitespace-nowrap">Employee</th>
+                    <th className="py-3 px-4 font-medium whitespace-nowrap text-center">Attendance</th>
                     <th className="py-3 px-4 font-medium whitespace-nowrap text-right">Base Salary</th>
                     <th className="py-3 px-4 font-medium whitespace-nowrap text-right">Bonuses</th>
                     <th className="py-3 px-4 font-medium whitespace-nowrap text-right">Deductions</th>
                     <th className="py-3 px-4 font-medium whitespace-nowrap text-right">Net Payable</th>
-                    <th className="py-3 px-4 font-medium whitespace-nowrap text-center">Status</th>
+                    <th className="py-3 px-4 font-medium whitespace-nowrap text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-100 dark:divide-surface-800/50">
@@ -225,11 +235,14 @@ const PayrollPage = () => {
                     const base = emp.salary?.base || 0;
                     const bonus = emp.salary?.bonus || 0;
                     const deductions = emp.salary?.deductions || 0;
-                    const net = base + bonus - deductions;
+                    const presentDays = emp.attendanceSummary?.presentDays || 0;
+                    const totalDays = emp.attendanceSummary?.totalDays || 30;
+                    const proratedBase = totalDays > 0 ? (base * (presentDays / totalDays)) : 0;
+                    const net = proratedBase + bonus - deductions;
 
                     return (
                       <tr key={emp.id} className="hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors group">
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 whitespace-nowrap">
                           <div className="flex items-center gap-3">
                             {emp.userId?.avatar ? (
                               <img src={emp.userId.avatar} alt="Avatar" className="w-8 h-8 rounded-full object-cover shadow-sm" />
@@ -239,27 +252,43 @@ const PayrollPage = () => {
                               </div>
                             )}
                             <div>
-                              <p className="font-semibold text-surface-900 dark:text-white group-hover:text-primary-600 transition-colors">{emp.userId?.firstName} {emp.userId?.lastName}</p>
-                              <p className="text-xs text-surface-500">{emp.department?.name || 'No Dept'}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-surface-900 dark:text-white group-hover:text-primary-600 transition-colors">{emp.userId?.firstName} {emp.userId?.lastName}</p>
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-surface-100 dark:bg-surface-700 text-surface-600 dark:text-surface-300 capitalize border border-surface-200 dark:border-surface-600">
+                                  {emp.userId?.role?.replace('_', ' ') || 'employee'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-surface-500">{emp.designation || 'Staff'} • {emp.department?.name || 'No Dept'}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-right font-medium text-surface-600 dark:text-surface-300">
-                          {formatCurrency(base)}
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          <span className="text-xs font-medium bg-primary-50 dark:bg-primary-900/30 text-primary-600 px-2 py-1 rounded-md inline-block">
+                            {presentDays} / {totalDays} Days
+                          </span>
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-3 px-4 text-right font-medium text-surface-600 dark:text-surface-300 whitespace-nowrap">
+                          {formatCurrency(proratedBase)}
+                          <div className="text-[10px] text-surface-400 mt-0.5">Fixed: {formatCurrency(base)}</div>
+                        </td>
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
                           <span className="text-success font-medium bg-success/10 px-2 py-0.5 rounded text-xs">+{formatCurrency(bonus)}</span>
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
                           <span className="text-danger font-medium bg-danger/10 px-2 py-0.5 rounded text-xs">-{formatCurrency(deductions)}</span>
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
                           <span className="font-bold text-surface-900 dark:text-white">{formatCurrency(net)}</span>
                         </td>
-                        <td className="py-3 px-4 text-center">
-                          <button className="p-1.5 hover:bg-primary-50 dark:hover:bg-primary-900/30 text-primary-600 rounded-lg transition-colors mx-auto flex items-center gap-1 text-xs font-semibold">
-                            <CheckCircle2 size={16} /> Process
-                          </button>
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => handleEditClick(emp)} className="p-1.5 hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 rounded-lg transition-colors" title="Edit Salary">
+                              <Edit2 size={16} />
+                            </button>
+                            <button className="p-1.5 hover:bg-primary-50 dark:hover:bg-primary-900/30 text-primary-600 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold" title="Process Payment">
+                              <CheckCircle2 size={16} /> Process
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -278,6 +307,89 @@ const PayrollPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Edit Salary Modal */}
+      {editingEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setEditingEmployee(null)}>
+          <div className="bg-white dark:bg-surface-800 rounded-2xl w-full max-w-md shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-surface-100 dark:border-surface-700">
+              <h2 className="text-xl font-bold text-surface-900 dark:text-white">Edit Salary Details</h2>
+              <button onClick={() => setEditingEmployee(null)} className="p-1 hover:bg-surface-100 dark:hover:bg-surface-700 rounded-lg text-surface-400 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-5 bg-surface-50 dark:bg-surface-800/50 flex items-center gap-3">
+               <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-600 font-bold">
+                 {editingEmployee.userId?.firstName?.[0]}{editingEmployee.userId?.lastName?.[0]}
+               </div>
+               <div>
+                 <p className="font-semibold text-surface-900 dark:text-white">{editingEmployee.userId?.firstName} {editingEmployee.userId?.lastName}</p>
+                 <p className="text-xs text-surface-500">{editingEmployee.designation}</p>
+               </div>
+            </div>
+
+            <form onSubmit={handleSaveSalary} className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1">Base Salary (INR)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400 font-medium">₹</span>
+                  <input type="number" min="0" step="100" value={editForm.base} onChange={e => setEditForm({...editForm, base: e.target.value})} className="input-field pl-8" required />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-success mb-1">Bonuses / Overtime (INR)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-success font-medium">+</span>
+                  <input type="number" min="0" step="100" value={editForm.bonus} onChange={e => setEditForm({...editForm, bonus: e.target.value})} className="input-field pl-8 focus:border-success focus:ring-success/20" required />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-danger mb-1">Deductions / Taxes (INR)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-danger font-medium">-</span>
+                  <input type="number" min="0" step="100" value={editForm.deductions} onChange={e => setEditForm({...editForm, deductions: e.target.value})} className="input-field pl-8 focus:border-danger focus:ring-danger/20" required />
+                </div>
+              </div>
+              
+              <div className="bg-surface-50 dark:bg-surface-800/50 p-4 rounded-xl mt-6 flex items-center justify-between">
+                 <span className="font-semibold text-surface-700 dark:text-surface-300">New Net Payable (Projected)</span>
+                 <span className="text-xl font-bold text-surface-900 dark:text-white">
+                   {(() => {
+                     const presentDays = editingEmployee.attendanceSummary?.presentDays || 0;
+                     const totalDays = editingEmployee.attendanceSummary?.totalDays || 30;
+                     const prorated = totalDays > 0 ? (parseFloat(editForm.base || 0) * (presentDays / totalDays)) : 0;
+                     return formatCurrency(prorated + parseFloat(editForm.bonus || 0) - parseFloat(editForm.deductions || 0));
+                   })()}
+                 </span>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setEditingEmployee(null)} className="btn-secondary flex-1 justify-center">Cancel</button>
+                <button type="submit" disabled={updating} className="btn-primary flex-1 justify-center">{updating ? 'Saving...' : 'Save Updates'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modern Centered Toast Alert */}
+      {toast && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm bg-black/20 animate-fade-in">
+          <div className={`px-6 py-6 rounded-2xl shadow-2xl flex flex-col items-center gap-3 animate-slide-up max-w-sm w-full text-center border-t-4 ${toast.type === 'success' ? 'bg-white dark:bg-surface-800 border-success text-surface-900 dark:text-white' : 'bg-white dark:bg-surface-800 border-danger text-surface-900 dark:text-white'}`}>
+            <div className={`p-3 rounded-full ${toast.type === 'success' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
+              {toast.type === 'success' ? <CheckCircle2 size={32} /> : <X size={32} />}
+            </div>
+            <div>
+              <h3 className="font-bold text-lg mb-1">{toast.type === 'success' ? 'Success!' : 'Action Failed'}</h3>
+              <p className="text-sm text-surface-500 font-medium">{toast.message}</p>
+            </div>
+            <button onClick={() => setToast(null)} className={`mt-2 w-full py-2.5 rounded-lg font-bold text-white transition-colors ${toast.type === 'success' ? 'bg-success hover:bg-success/90 shadow-lg shadow-success/20' : 'bg-danger hover:bg-danger/90 shadow-lg shadow-danger/20'}`}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

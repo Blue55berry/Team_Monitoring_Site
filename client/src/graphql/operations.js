@@ -45,9 +45,10 @@ export const GET_EMPLOYEES = gql`
   query Employees($department: ID, $ragStatus: RAGStatus) {
     employees(department: $department, ragStatus: $ragStatus) {
       id employeeId designation ragStatus performanceScore workType bio
-      userId { id firstName lastName email avatar phone }
+      userId { id firstName lastName email avatar phone role }
       department { id name color }
       salary { base bonus deductions }
+      attendanceSummary { presentDays totalDays }
       skills createdAt
     }
   }

@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql';
-import { Employee, User, Department, Activity } from '../../models/index.js';
-import { requireAuth, requireAdminOrHR, requireManagement } from '../../middleware/rbac.js';
+import { Employee, User, Department, Activity, Attendance } from '../../models/index.js';
+import { requireAuth, requireRole, requireAdminOrHR, requireManagement } from '../../middleware/rbac.js';
 import { logActivity } from '../../utils/activityLogger.js';
 
 const employeeResolvers = {
@@ -98,7 +98,7 @@ const employeeResolvers = {
     },
 
     updateEmployee: async (_, { id, input }, { user }) => {
-      requireAdminOrHR(user);
+      requireRole(user, ['admin', 'hr', 'account']);
       
       const employee = await Employee.findById(id);
       if (!employee) {
@@ -180,6 +180,22 @@ const employeeResolvers = {
         return employee.manager;
       }
       return Employee.findById(employee.manager).populate('userId');
+    },
+    attendanceSummary: async (employee) => {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      const presentRecords = await Attendance.find({
+        employee: employee._id,
+        date: { $gte: startOfMonth, $lte: endOfMonth },
+        status: { $in: ['present', 'half-day'] } // Or define what counts as "present"
+      });
+
+      return {
+        presentDays: presentRecords.length,
+        totalDays: endOfMonth.getDate() // Total days in the current month
+      };
     }
   }
 };

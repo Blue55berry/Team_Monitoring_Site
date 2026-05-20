@@ -20,24 +20,7 @@ const AIAssistantPage = () => {
   const [loading, setLoading] = useState(false);
   const endRef = useRef(null);
 
-  const [askAI] = useLazyQuery(ASK_AI, {
-    onCompleted: (data) => {
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: data.askAI.answer, 
-        timestamp: new Date() 
-      }]);
-      setLoading(false);
-    },
-    onError: (error) => {
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: "❌ " + error.message, 
-        timestamp: new Date() 
-      }]);
-      setLoading(false);
-    }
-  });
+  const [askAI] = useLazyQuery(ASK_AI, { fetchPolicy: 'network-only' });
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -46,11 +29,35 @@ const AIAssistantPage = () => {
   const handleSend = async () => {
     if (!input.trim() || loading) return;
     const userMsg = { role: 'user', content: input, timestamp: new Date() };
+    const questionText = input; // capture before clearing
+    
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
 
-    askAI({ variables: { question: input } });
+    try {
+      const { data, error } = await askAI({ variables: { question: questionText } });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (data?.askAI) {
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: data.askAI.answer, 
+          timestamp: new Date() 
+        }]);
+      }
+    } catch (err) {
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: "❌ " + (err.message || "An unexpected error occurred while contacting the AI."), 
+        timestamp: new Date() 
+      }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

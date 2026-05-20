@@ -1,11 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Employee, Project, Task, Client, Department } from '../models/index.js';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 export const getAIResponse = async (question) => {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
     // 1. Gather context from the database (Simulated RAG - gathering key records)
     const [employees, projects, tasks, departments] = await Promise.all([
@@ -42,6 +41,9 @@ export const getAIResponse = async (question) => {
     };
   } catch (error) {
     console.error('AI Service Error:', error);
+    if (error.cause) {
+      console.error('AI Service Error Cause:', error.cause);
+    }
     throw new Error('Failed to generate AI response: ' + error.message);
   }
 };

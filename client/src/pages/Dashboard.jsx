@@ -279,11 +279,122 @@ const AccountDashboard = ({ user, stats }) => {
   );
 };
 
+const HRDashboard = ({ user, stats }) => {
+  const { data: empData } = useQuery(GET_EMPLOYEES);
+  const attendanceData = stats?.monthlyAttendance || [];
+
+  const employees = empData?.employees || [];
+  
+  // Calculate new hires (e.g., joined in last 30 days)
+  const newHires = employees.filter(emp => {
+    if (!emp.joiningDate) return false;
+    const joinDate = new Date(Number(emp.joiningDate));
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    return joinDate >= thirtyDaysAgo;
+  }).length;
+
+  // Calculate department distribution
+  const deptDist = {};
+  employees.forEach(emp => {
+    const deptName = emp.department?.name || 'Unassigned';
+    if (!deptDist[deptName]) {
+      deptDist[deptName] = { name: deptName, count: 0, color: emp.department?.color || COLORS[Object.keys(deptDist).length % COLORS.length] };
+    }
+    deptDist[deptName].count += 1;
+  });
+  
+  const departmentChartData = Object.values(deptDist).sort((a, b) => b.count - a.count);
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">
+            Welcome back, {user?.firstName}!
+          </h1>
+          <p className="text-surface-400 mt-1">Here is your Human Resources overview.</p>
+        </div>
+        <div className="text-sm text-surface-400">
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <StatCard icon={Users} label="Total Employees" value={stats?.totalEmployees || employees.length || 0} change="Active headcount" changeType="up" color="bg-gradient-to-br from-primary-500 to-primary-600" delay={0} />
+        <div className="card bg-gradient-to-br from-accent-500 to-pink-600 border-0 text-white animate-slide-up" style={{ animationDelay: '100ms' }}>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-white/80 text-sm font-medium">New Hires (Last 30 Days)</p>
+              <h3 className="text-3xl font-bold mt-1">{newHires}</h3>
+            </div>
+            <div className="p-2 bg-white/20 rounded-lg backdrop-blur"><Briefcase size={20} /></div>
+          </div>
+          <p className="mt-3 text-xs text-white/70">Recent onboarding activity</p>
+        </div>
+        <StatCard icon={UserCheck} label="Present Today" value={stats?.presentToday || 0} change={`of ${stats?.totalEmployees || 0} employees`} changeType="up" color="bg-gradient-to-br from-success to-emerald-600" delay={200} />
+        <StatCard icon={CalendarX} label="Pending Leaves" value={stats?.pendingLeaves || 0} change="Requires Approval" changeType="down" color="bg-gradient-to-br from-warning to-orange-500" delay={300} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Department Distribution (Hiring Domains) */}
+        <div className="card animate-slide-up flex flex-col" style={{ animationDelay: '400ms' }}>
+          <h3 className="font-semibold text-surface-900 dark:text-white mb-4">Hiring by Domain</h3>
+          <div className="flex-1 min-h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={departmentChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="count" stroke="none">
+                  {departmentChartData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ background: 'var(--color-surface-800)', border: 'none', borderRadius: '12px', color: 'white', fontSize: '13px' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-wrap gap-3 mt-4 justify-center">
+            {departmentChartData.map((item, i) => (
+              <div key={i} className="flex items-center gap-1.5 text-xs">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
+                <span className="text-surface-600 dark:text-surface-300 font-medium">{item.name} ({item.count})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Attendance Trends */}
+        <div className="card lg:col-span-2 animate-slide-up" style={{ animationDelay: '500ms' }}>
+          <h3 className="font-semibold text-surface-900 dark:text-white mb-4">Workforce Attendance Trends</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={attendanceData}>
+              <defs>
+                <linearGradient id="hrPresentGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-200)" />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--color-surface-400)' }} />
+              <YAxis tick={{ fontSize: 12, fill: 'var(--color-surface-400)' }} />
+              <Tooltip contentStyle={{ background: 'var(--color-surface-800)', border: 'none', borderRadius: '12px', color: 'white' }} />
+              <Area type="monotone" dataKey="present" stroke="#10b981" fill="url(#hrPresentGrad)" strokeWidth={3} name="Present" />
+              <Line type="monotone" dataKey="absent" stroke="#ef4444" strokeWidth={2} dot={false} name="Absent" />
+              <Line type="monotone" dataKey="late" stroke="#f59e0b" strokeWidth={2} dot={false} name="Late" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Dashboard = () => {
   const { user } = useAuth();
   
   const isEmployee = user?.role?.toLowerCase() === 'employee';
   const isAccount = ['account', 'accounts'].includes(user?.role?.toLowerCase());
+  const isHR = user?.role?.toLowerCase() === 'hr';
 
   const { data, loading } = useQuery(GET_DASHBOARD_STATS, { skip: isEmployee });
   const stats = data?.dashboardStats;
@@ -302,6 +413,10 @@ const Dashboard = () => {
 
   if (isAccount) {
     return <AccountDashboard user={user} stats={stats} />;
+  }
+
+  if (isHR) {
+    return <HRDashboard user={user} stats={stats} />;
   }
 
   const taskChartData = stats?.tasksByStatus?.map(t => ({

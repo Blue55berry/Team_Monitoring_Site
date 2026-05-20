@@ -110,8 +110,14 @@ const typeDefs = `#graphql
     manager: Employee
     workType: WorkType
     bio: String
+    attendanceSummary: AttendanceSummary
     createdAt: String!
     updatedAt: String!
+  }
+
+  type AttendanceSummary {
+    presentDays: Int!
+    totalDays: Int!
   }
 
   type Salary {
