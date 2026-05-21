@@ -317,12 +317,36 @@ export const MARK_ALL_READ = gql`
 
 // ============ AI ============
 export const ASK_AI = gql`
-  query AskAI($question: String!) {
-    askAI(question: $question) {
+  query AskAI($question: String!, $sessionId: ID) {
+    askAI(question: $question, sessionId: $sessionId) {
       answer
       sources
       confidence
+      sessionId
     }
+  }
+`;
+
+export const GET_MY_CHAT_SESSIONS = gql`
+  query MyChatSessions {
+    myChatSessions {
+      id title createdAt updatedAt
+    }
+  }
+`;
+
+export const GET_CHAT_SESSION = gql`
+  query ChatSession($id: ID!) {
+    chatSession(id: $id) {
+      id title createdAt updatedAt
+      messages { role content timestamp }
+    }
+  }
+`;
+
+export const DELETE_CHAT_SESSION = gql`
+  mutation DeleteChatSession($id: ID!) {
+    deleteChatSession(id: $id)
   }
 `;
 

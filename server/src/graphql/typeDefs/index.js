@@ -324,6 +324,22 @@ const typeDefs = `#graphql
     answer: String!
     sources: [String]
     confidence: Float
+    sessionId: ID
+  }
+
+  type AIChatMessage {
+    role: String!
+    content: String!
+    timestamp: String!
+  }
+
+  type AIChatSession {
+    id: ID!
+    user: User!
+    title: String!
+    messages: [AIChatMessage!]!
+    createdAt: String!
+    updatedAt: String!
   }
 
   # ============ INPUTS ============
@@ -504,7 +520,9 @@ const typeDefs = `#graphql
     dashboardStats: DashboardStats!
     
     # AI
-    askAI(question: String!): AIResponse!
+    askAI(question: String!, sessionId: ID): AIResponse!
+    myChatSessions: [AIChatSession!]!
+    chatSession(id: ID!): AIChatSession
   }
 
   # ============ MUTATIONS ============
@@ -561,6 +579,7 @@ const typeDefs = `#graphql
     
     # AI
     syncRAGData: Boolean!
+    deleteChatSession(id: ID!): Boolean!
   }
 
   # ============ SUBSCRIPTIONS ============

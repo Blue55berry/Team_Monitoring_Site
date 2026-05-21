@@ -8,7 +8,7 @@ export const getAIResponse = async (question) => {
 
     // 1. Gather context from the database (Simulated RAG - gathering key records)
     const [employees, projects, tasks, departments] = await Promise.all([
-      Employee.find().populate('userId').limit(20),
+      Employee.find().populate('userId department').limit(20),
       Project.find().limit(10),
       Task.find().limit(20),
       Department.find()
@@ -23,13 +23,13 @@ export const getAIResponse = async (question) => {
       - Departments: ${departments.map(d => d.name).join(', ')}
 
       Detailed Data Context:
-      Employees: ${employees.map(e => `${e.userId.firstName} ${e.userId.lastName} (${e.designation}, Dept: ${e.department}, RAG: ${e.ragStatus})`).join('; ')}
+      Employees: ${employees.map(e => `${e.userId?.firstName || 'Unknown'} ${e.userId?.lastName || ''} (${e.designation}, Dept: ${e.department?.name || 'Unassigned'}, RAG: ${e.ragStatus}, Base Salary: $${e.salary?.base || 0}, Bonus: $${e.salary?.bonus || 0})`).join('; ')}
       Active Projects: ${projects.map(p => `${p.name} (Progress: ${p.progress}%, Status: ${p.status}, RAG: ${p.ragStatus})`).join('; ')}
       Recent Tasks: ${tasks.map(t => `${t.title} (Priority: ${t.priority}, Status: ${t.status})`).join('; ')}
 
       User Question: "${question}"
 
-      Please provide a data-driven, professional answer based ONLY on the context provided above. If the information isn't available, say you don't have enough data but offer to help with what you do know. Use markdown for formatting.
+      Please provide a data-driven, professional answer. Use the context provided above for specific company data (like employee salaries, project status, etc.). If the question is about general business growth, strategy, or industry practices, answer using your general knowledge while keeping a professional assistant tone. Use markdown for formatting.
     `;
 
     const result = await model.generateContent(context);
