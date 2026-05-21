@@ -50,6 +50,9 @@ const AdminAttendanceView = () => {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
+  const currentDate = new Date();
+  const isToday = (d) => currentDate.getFullYear() === year && currentDate.getMonth() === month && currentDate.getDate() === d;
+
   const employeeMap = {};
   filteredRecords.forEach(record => {
     const empId = record.employee?.id;
@@ -186,9 +189,12 @@ const AdminAttendanceView = () => {
                 <tr className="border-b border-surface-200 dark:border-surface-700">
                   <th className="py-3 px-4 text-surface-400 font-medium sticky left-0 bg-white dark:bg-surface-900 z-10 min-w-[200px]">Employee</th>
                   <th className="py-3 px-4 text-surface-400 font-medium min-w-[150px]">Department</th>
-                  {daysArray.map(d => (
-                    <th key={d} className="py-3 px-1 text-center text-surface-400 font-medium min-w-[28px]">{d}</th>
-                  ))}
+                  {daysArray.map(d => {
+                    const current = isToday(d);
+                    return (
+                      <th key={d} className={`py-3 px-1 text-center min-w-[28px] ${current ? 'text-primary-600 font-bold bg-primary-50/50 dark:bg-primary-900/20 border-b-2 border-primary-500' : 'text-surface-400 font-medium'}`}>{d}</th>
+                    );
+                  })}
                   <th className="py-3 px-4 text-surface-400 font-medium text-right sticky right-0 bg-white dark:bg-surface-900 z-10 w-32 shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">Summary</th>
                 </tr>
               </thead>
@@ -213,6 +219,7 @@ const AdminAttendanceView = () => {
                       </td>
                       {daysArray.map(d => {
                         const status = row.records[d];
+                        const current = isToday(d);
                         let colorClass = 'bg-surface-100 dark:bg-surface-800';
                         let title = 'No Record';
                         if (status === 'present') { colorClass = 'bg-success'; title = 'Present'; }
@@ -222,8 +229,8 @@ const AdminAttendanceView = () => {
                         else if (status === 'leave') { colorClass = 'bg-accent-500'; title = 'On Leave'; }
 
                         return (
-                          <td key={d} className="py-2 px-1 text-center">
-                            <div className={`w-5 h-5 mx-auto rounded-full ${colorClass} transition-transform hover:scale-125 cursor-pointer shadow-sm`} title={`${new Date(year, month, d).toDateString()} - ${title}`} />
+                          <td key={d} className={`py-2 px-1 text-center ${current ? 'bg-primary-50/30 dark:bg-primary-900/10 border-l border-r border-primary-100 dark:border-primary-800/30' : ''}`}>
+                            <div className={`w-5 h-5 mx-auto rounded-full ${colorClass} transition-transform hover:scale-125 cursor-pointer shadow-sm ${current && status === undefined ? 'border border-primary-300 dark:border-primary-600' : ''}`} title={`${new Date(year, month, d).toDateString()} - ${title}`} />
                           </td>
                         );
                       })}
