@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation } from "@apollo/client/react";
 import { CREATE_EMPLOYEE, UPDATE_EMPLOYEE } from '../../graphql/operations';
-import { X } from 'lucide-react';
+import { X, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 
@@ -20,7 +20,10 @@ const EmployeeModal = ({ employee, departments, onClose, onSuccess }) => {
     skills: employee?.skills?.join(', ') || '',
     workType: employee?.workType || 'office',
     bio: employee?.bio || '',
-    role: employee?.userId?.role || 'employee'
+    role: employee?.userId?.role || 'employee',
+    lat: employee?.assignedLocation?.lat || '',
+    lng: employee?.assignedLocation?.lng || '',
+    radius: employee?.assignedLocation?.radius || 100,
   });
   const [loading, setLoading] = useState(false);
 
@@ -44,6 +47,16 @@ const EmployeeModal = ({ employee, departments, onClose, onSuccess }) => {
         phone: form.phone,
         role: form.role
       };
+      
+      // Add Assigned Location if lat/lng are provided
+      if (form.lat && form.lng) {
+        input.assignedLocation = {
+          lat: parseFloat(form.lat),
+          lng: parseFloat(form.lng),
+          radius: parseFloat(form.radius) || 100
+        };
+      }
+
       if (!isEdit) input.password = form.password || 'password123';
 
       if (isEdit) {
@@ -65,7 +78,7 @@ const EmployeeModal = ({ employee, departments, onClose, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <div className="bg-white dark:bg-surface-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-surface-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b border-surface-200 dark:border-surface-700">
           <h2 className="text-lg font-bold text-surface-900 dark:text-white">{isEdit ? 'Edit Employee' : 'New Employee'}</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-700"><X size={18} /></button>
@@ -118,6 +131,33 @@ const EmployeeModal = ({ employee, departments, onClose, onSuccess }) => {
               </select>
             </div>
           </div>
+
+          {/* Admin Location Access Panel */}
+          {user?.role === 'admin' && (
+            <div className="p-4 bg-primary-50 dark:bg-primary-900/10 rounded-xl border border-primary-100 dark:border-primary-800/30">
+              <div className="flex items-center gap-2 mb-3">
+                <MapPin size={18} className="text-primary-600" />
+                <h3 className="font-semibold text-primary-900 dark:text-primary-100">Location Access (Geofencing)</h3>
+              </div>
+              <p className="text-xs text-primary-600 mb-4">Set the allowed GPS coordinates for mobile check-in.</p>
+              
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-primary-700 dark:text-primary-300 mb-1">Latitude</label>
+                  <input type="number" step="any" name="lat" value={form.lat} onChange={handleChange} className="input-field text-sm" placeholder="e.g. 40.7128" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-primary-700 dark:text-primary-300 mb-1">Longitude</label>
+                  <input type="number" step="any" name="lng" value={form.lng} onChange={handleChange} className="input-field text-sm" placeholder="e.g. -74.0060" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-primary-700 dark:text-primary-300 mb-1">Radius (meters)</label>
+                  <input type="number" name="radius" value={form.radius} onChange={handleChange} className="input-field text-sm" placeholder="100" />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-surface-600 dark:text-surface-300 mb-1">Skills (comma separated)</label>
             <input name="skills" value={form.skills} onChange={handleChange} className="input-field" placeholder="React, Node.js, Python" />
@@ -132,7 +172,6 @@ const EmployeeModal = ({ employee, departments, onClose, onSuccess }) => {
                 <option value="manager">Project Manager (Team & Tasks)</option>
                 <option value="admin">Administrator (Full Control)</option>
               </select>
-              <p className="text-[10px] text-surface-400 mt-1 italic">Note: High-level roles have increased permissions across the platform.</p>
             </div>
           )}
           <div className="flex gap-3 pt-2">
