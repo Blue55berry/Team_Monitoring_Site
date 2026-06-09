@@ -1,11 +1,13 @@
-import { useQuery } from "@apollo/client/react";
-import { GET_DASHBOARD_STATS, GET_MY_TASKS, GET_EMPLOYEES } from '../graphql/operations';
+import { useQuery, useMutation } from "@apollo/client/react";
+import { GET_DASHBOARD_STATS, GET_MY_TASKS, GET_EMPLOYEES, GET_SETTINGS, UPDATE_SETTINGS } from '../graphql/operations';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   Users, FolderKanban, CheckSquare, Briefcase,
   TrendingUp, Clock, UserCheck, CalendarX,
-  ArrowUpRight, ArrowDownRight, BarChart2, DollarSign
+  ArrowUpRight, ArrowDownRight, BarChart2, DollarSign, MapPin
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Area, AreaChart
@@ -395,9 +397,65 @@ const Dashboard = () => {
   const isEmployee = user?.role?.toLowerCase() === 'employee';
   const isAccount = ['account', 'accounts'].includes(user?.role?.toLowerCase());
   const isHR = user?.role?.toLowerCase() === 'hr';
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
 
   const { data, loading } = useQuery(GET_DASHBOARD_STATS, { skip: isEmployee });
   const stats = data?.dashboardStats;
+
+  // Hooks for Settings (must be called unconditionally before early returns)
+  const { data: settingsData } = useQuery(GET_SETTINGS, { skip: !isAdmin });
+  const [updateSettings, { loading: savingSettings }] = useMutation(UPDATE_SETTINGS);
+
+  const [officeLocation, setOfficeLocation] = useState({ lat: '', lng: '', radius: '100' });
+
+  useEffect(() => {
+    if (settingsData?.settings?.globalLocation) {
+      setOfficeLocation({
+        lat: settingsData.settings.globalLocation.lat || '',
+        lng: settingsData.settings.globalLocation.lng || '',
+        radius: settingsData.settings.globalLocation.radius || '100'
+      });
+    }
+  }, [settingsData]);
+
+  const parseCoordinate = (val) => {
+    if (!val) return 0;
+    const str = String(val).toUpperCase().trim();
+    let num = parseFloat(str.replace(/[^0-9.-]/g, ''));
+    if (str.includes('S') || str.includes('W')) {
+      num = -Math.abs(num);
+    }
+    return isNaN(num) ? 0 : num;
+  };
+
+  const handleSaveOfficeLocation = async () => {
+    let globalLocation = null;
+    
+    // If both are filled, parse them. If one is filled and the other isn't, warn them.
+    if (officeLocation.lat !== '' && officeLocation.lng !== '') {
+      globalLocation = {
+        lat: parseCoordinate(officeLocation.lat),
+        lng: parseCoordinate(officeLocation.lng),
+        radius: parseFloat(officeLocation.radius) || 100
+      };
+    } else if (officeLocation.lat !== '' || officeLocation.lng !== '') {
+      toast.error('Both Latitude and Longitude must be filled, or both left empty to clear the geofence.');
+      return;
+    }
+
+    try {
+      await updateSettings({
+        variables: {
+          input: {
+            globalLocation
+          }
+        }
+      });
+      toast.success(globalLocation ? 'Global Office Location updated!' : 'Global Office Location cleared!');
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
 
   if (isEmployee) {
     return <EmployeeDashboard user={user} />;
@@ -439,6 +497,36 @@ const Dashboard = () => {
         </div>
         <div className="text-sm text-surface-400">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+        </div>
+      </div>
+
+      {/* Global Office Location Panel */}
+      <div className="card bg-primary-50 dark:bg-primary-900/10 border border-primary-100 dark:border-primary-800/30">
+        <div className="flex items-center gap-2 mb-3">
+          <MapPin size={20} className="text-primary-600" />
+          <h3 className="font-semibold text-primary-900 dark:text-primary-100">Global Office Location (Mandatory Geofence)</h3>
+        </div>
+        <p className="text-sm text-primary-700 dark:text-primary-300 mb-4">
+          Setting this location will enforce it across the mobile app for ALL roles. If they check-in outside this location, they will be marked ABSENT.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <div>
+            <label className="block text-xs font-medium text-primary-700 dark:text-primary-300 mb-1">Latitude</label>
+            <input type="text" value={officeLocation.lat} onChange={e => setOfficeLocation({...officeLocation, lat: e.target.value})} className="input-field" placeholder="e.g. 11.0267° N" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-primary-700 dark:text-primary-300 mb-1">Longitude</label>
+            <input type="text" value={officeLocation.lng} onChange={e => setOfficeLocation({...officeLocation, lng: e.target.value})} className="input-field" placeholder="e.g. 77.1066° E" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-primary-700 dark:text-primary-300 mb-1">Radius (meters)</label>
+            <input type="number" value={officeLocation.radius} onChange={e => setOfficeLocation({...officeLocation, radius: e.target.value})} className="input-field" placeholder="100" />
+          </div>
+          <div>
+            <button onClick={handleSaveOfficeLocation} disabled={savingSettings} className="btn-primary w-full justify-center">
+              {savingSettings ? 'Saving...' : 'Update Location'}
+            </button>
+          </div>
         </div>
       </div>
 

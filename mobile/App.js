@@ -75,6 +75,27 @@ const MY_TASKS_QUERY = gql`
   }
 `;
 
+const REQUEST_LEAVE_MUTATION = gql`
+  mutation RequestLeave($input: LeaveInput!) {
+    requestLeave(input: $input) {
+      id
+      type
+      startDate
+      endDate
+      status
+    }
+  }
+`;
+
+const UPDATE_TASK_MUTATION = gql`
+  mutation UpdateTask($id: ID!, $input: TaskUpdateInput!) {
+    updateTask(id: $id, input: $input) {
+      id
+      status
+    }
+  }
+`;
+
 function LoginScreen({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -273,6 +294,17 @@ function DashboardScreen({ userRole, userName, onLogout }) {
   const [showWebView, setShowWebView] = useState(false);
   const [authToken, setAuthToken] = useState(null);
 
+  // Leave Request State
+  const [leaveModalVisible, setLeaveModalVisible] = useState(false);
+  const [leaveType, setLeaveType] = useState('sick');
+  const [leaveReason, setLeaveReason] = useState('');
+  
+  // Basic date handling for demo
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const nextWeek = new Date();
+  nextWeek.setDate(nextWeek.getDate() + 3);
+
   useEffect(() => {
     SecureStore.getItemAsync('accessToken').then(setAuthToken);
   }, []);
@@ -282,10 +314,13 @@ function DashboardScreen({ userRole, userName, onLogout }) {
     fetchPolicy: 'network-only' 
   });
   
-  const { data: tasksData, loading: tasksLoading } = useQuery(MY_TASKS_QUERY, { 
+  const { data: tasksData, loading: tasksLoading, refetch: refetchTasks } = useQuery(MY_TASKS_QUERY, { 
     skip: isAdminOrHR || showWebView,
     fetchPolicy: 'network-only'
   });
+
+  const [updateTask] = useMutation(UPDATE_TASK_MUTATION);
+  const [requestLeave, { loading: leavingLoading }] = useMutation(REQUEST_LEAVE_MUTATION);
 
   const handleLogout = async () => {
     await SecureStore.deleteItemAsync('accessToken');
@@ -294,6 +329,37 @@ function DashboardScreen({ userRole, userName, onLogout }) {
     await SecureStore.deleteItemAsync('userName');
     client.clearStore();
     onLogout();
+  };
+
+  const handleTaskStatusToggle = async (task) => {
+    const nextStatus = task.status === 'completed' ? 'todo' : task.status === 'in_progress' ? 'completed' : 'in_progress';
+    try {
+      await updateTask({ variables: { id: task.id, input: { status: nextStatus } } });
+      refetchTasks();
+    } catch (e) {
+      Alert.alert('Error', 'Could not update task status.');
+    }
+  };
+
+  const handleLeaveSubmit = async () => {
+    if (!leaveReason) return Alert.alert('Required', 'Please enter a reason for the leave.');
+    try {
+      await requestLeave({
+        variables: {
+          input: {
+            type: leaveType,
+            startDate: tomorrow.toISOString(),
+            endDate: nextWeek.toISOString(),
+            reason: leaveReason
+          }
+        }
+      });
+      setLeaveModalVisible(false);
+      setLeaveReason('');
+      Alert.alert('Success', 'Leave request submitted to HR.');
+    } catch (e) {
+      Alert.alert('Error', e.message);
+    }
   };
 
   if (showWebView && isAdminOrHR) {
@@ -363,23 +429,66 @@ function DashboardScreen({ userRole, userName, onLogout }) {
           )}
         </View>
       ) : (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>My Pending Tasks</Text>
-          {tasksLoading ? <ActivityIndicator /> : (
-            <View style={styles.taskList}>
-              {tasksData?.myTasks?.length > 0 ? (
-                tasksData.myTasks.map(task => (
-                  <View key={task.id} style={styles.taskItem}>
-                    <Text style={styles.taskTitle}>{task.title}</Text>
-                    <Text style={styles.taskStatus}>{task.status.replace('_', ' ').toUpperCase()}</Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.emptyText}>You have no pending tasks today!</Text>
-              )}
+        <>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
+            <Text style={styles.cardTitle}>My Pending Tasks</Text>
+            <TouchableOpacity onPress={() => setLeaveModalVisible(true)} style={styles.webAccessButton}>
+              <Text style={styles.webAccessText}>Apply Leave 🏖️</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.card}>
+            {tasksLoading ? <ActivityIndicator /> : (
+              <View style={styles.taskList}>
+                {tasksData?.myTasks?.length > 0 ? (
+                  tasksData.myTasks.map(task => (
+                    <TouchableOpacity key={task.id} onPress={() => handleTaskStatusToggle(task)} style={styles.taskItem}>
+                      <View>
+                        <Text style={styles.taskTitle}>{task.title}</Text>
+                        <Text style={{fontSize: 10, color: '#64748b', marginTop: 2}}>Tap to update status</Text>
+                      </View>
+                      <Text style={[styles.taskStatus, task.status === 'completed' && {backgroundColor: '#dcfce7', color: '#16a34a'}]}>
+                        {task.status.replace('_', ' ').toUpperCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <Text style={styles.emptyText}>You have no pending tasks today!</Text>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Leave Request Modal */}
+          <Modal isVisible={leaveModalVisible} animationIn="fadeInUp" animationOut="fadeOutDown" backdropOpacity={0.6}>
+            <View style={styles.modalContent}>
+              <View style={styles.iconContainer}><Text style={styles.iconText}>🏖️</Text></View>
+              <Text style={styles.modalTitle}>Request Leave</Text>
+              
+              <TextInput 
+                value={leaveType}
+                onChangeText={setLeaveType}
+                placeholder="Leave Type (sick, casual)" 
+                style={[styles.input, {width: '100%', marginBottom: 12}]}
+              />
+              <TextInput 
+                value={leaveReason}
+                onChangeText={setLeaveReason}
+                placeholder="Reason for leave..." 
+                style={[styles.input, {width: '100%', marginBottom: 24, height: 80, textAlignVertical: 'top'}]}
+                multiline
+              />
+              
+              <View style={{flexDirection: 'row', gap: 10, width: '100%'}}>
+                <TouchableOpacity style={[styles.modalButton, {flex: 1, backgroundColor: '#f1f5f9'}]} onPress={() => setLeaveModalVisible(false)}>
+                  <Text style={[styles.modalButtonText, {color: '#64748b'}]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalButton, {flex: 1}]} onPress={handleLeaveSubmit}>
+                  {leavingLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalButtonText}>Submit</Text>}
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
-        </View>
+          </Modal>
+        </>
       )}
     </View>
   );

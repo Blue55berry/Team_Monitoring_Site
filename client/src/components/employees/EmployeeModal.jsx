@@ -30,6 +30,16 @@ const EmployeeModal = ({ employee, departments, onClose, onSuccess }) => {
   const [createEmployee] = useMutation(CREATE_EMPLOYEE);
   const [updateEmployee] = useMutation(UPDATE_EMPLOYEE);
 
+  const parseCoordinate = (val) => {
+    if (!val) return 0;
+    const str = String(val).toUpperCase().trim();
+    let num = parseFloat(str.replace(/[^0-9.-]/g, ''));
+    if (str.includes('S') || str.includes('W')) {
+      num = -Math.abs(num);
+    }
+    return isNaN(num) ? 0 : num;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -51,8 +61,8 @@ const EmployeeModal = ({ employee, departments, onClose, onSuccess }) => {
       // Add Assigned Location if lat/lng are provided
       if (form.lat && form.lng) {
         input.assignedLocation = {
-          lat: parseFloat(form.lat),
-          lng: parseFloat(form.lng),
+          lat: parseCoordinate(form.lat),
+          lng: parseCoordinate(form.lng),
           radius: parseFloat(form.radius) || 100
         };
       }
@@ -144,11 +154,11 @@ const EmployeeModal = ({ employee, departments, onClose, onSuccess }) => {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-primary-700 dark:text-primary-300 mb-1">Latitude</label>
-                  <input type="number" step="any" name="lat" value={form.lat} onChange={handleChange} className="input-field text-sm" placeholder="e.g. 40.7128" />
+                  <input type="text" name="lat" value={form.lat} onChange={handleChange} className="input-field text-sm" placeholder="e.g. 11.0267° N" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-primary-700 dark:text-primary-300 mb-1">Longitude</label>
-                  <input type="number" step="any" name="lng" value={form.lng} onChange={handleChange} className="input-field text-sm" placeholder="e.g. -74.0060" />
+                  <input type="text" name="lng" value={form.lng} onChange={handleChange} className="input-field text-sm" placeholder="e.g. 77.1066° E" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-primary-700 dark:text-primary-300 mb-1">Radius (meters)</label>

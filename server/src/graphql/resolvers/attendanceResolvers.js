@@ -1,9 +1,10 @@
 import { GraphQLError } from 'graphql';
-import { Attendance, Employee } from '../../models/index.js';
+import { Attendance, Employee, Settings } from '../../models/index.js';
 import { requireAuth, requireAdminOrHR } from '../../middleware/rbac.js';
 
 const attendanceResolvers = {
   Query: {
+    // ... rest of queries
     attendanceRecords: async (_, { employee, startDate, endDate }, { user }) => {
       requireAdminOrHR(user);
       
@@ -81,12 +82,18 @@ const attendanceResolvers = {
       const now = new Date();
       let status = now.getHours() >= 10 ? 'late' : 'present';
       
-      if (location && employee.assignedLocation && employee.assignedLocation.lat) {
+      // Get global settings for office location
+      const settings = await Settings.findOne();
+      const requiredLocation = (settings && settings.globalLocation && settings.globalLocation.lat) 
+        ? settings.globalLocation 
+        : (employee.assignedLocation && employee.assignedLocation.lat) ? employee.assignedLocation : null;
+      
+      if (location && requiredLocation) {
         const R = 6371e3; // metres
-        const lat1 = employee.assignedLocation.lat * Math.PI/180;
+        const lat1 = requiredLocation.lat * Math.PI/180;
         const lat2 = location.lat * Math.PI/180;
-        const dLat = (location.lat - employee.assignedLocation.lat) * Math.PI/180;
-        const dLng = (location.lng - employee.assignedLocation.lng) * Math.PI/180;
+        const dLat = (location.lat - requiredLocation.lat) * Math.PI/180;
+        const dLng = (location.lng - requiredLocation.lng) * Math.PI/180;
 
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
                   Math.cos(lat1) * Math.cos(lat2) *
@@ -94,11 +101,11 @@ const attendanceResolvers = {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         const distance = R * c;
         
-        const allowedRadius = employee.assignedLocation.radius || 100;
+        const allowedRadius = requiredLocation.radius || 100;
         if (distance > allowedRadius) {
            status = 'absent'; // Outside of location area
         }
-      } else if (employee.assignedLocation && employee.assignedLocation.lat && !location) {
+      } else if (requiredLocation && !location) {
         throw new GraphQLError('Location is required for check-in', { extensions: { code: 'BAD_USER_INPUT' } });
       }
 

@@ -362,4 +362,30 @@ export const DELETE_CHAT_SESSION = gql`
   }
 `;
 
+// ============ SETTINGS ============
+export const GET_SETTINGS = gql`
+  query Settings {
+    settings {
+      globalLocation {
+        lat
+        lng
+        radius
+        address
+      }
+    }
+  }
+`;
+
+export const UPDATE_SETTINGS = gql`
+  mutation UpdateSettings($input: SettingsInput!) {
+    updateSettings(input: $input) {
+      globalLocation {
+        lat
+        lng
+        radius
+      }
+    }
+  }
+`;
+
 

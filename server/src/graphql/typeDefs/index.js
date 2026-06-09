@@ -545,6 +545,9 @@ const typeDefs = `#graphql
     askAI(question: String!, sessionId: ID): AIResponse!
     myChatSessions: [AIChatSession!]!
     chatSession(id: ID!): AIChatSession
+    
+    # Settings
+    settings: Settings
   }
 
   # ============ MUTATIONS ============
@@ -604,6 +607,17 @@ const typeDefs = `#graphql
     # AI
     syncRAGData: Boolean!
     deleteChatSession(id: ID!): Boolean!
+
+    # Settings
+    updateSettings(input: SettingsInput!): Settings!
+  }
+
+  type Settings {
+    globalLocation: AssignedLocation
+  }
+
+  input SettingsInput {
+    globalLocation: AssignedLocationInput
   }
 
   # ============ SUBSCRIPTIONS ============

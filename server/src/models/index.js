@@ -9,3 +9,4 @@ export { default as Leave } from './Leave.js';
 export { default as Notification } from './Notification.js';
 export { default as Activity } from './Activity.js';
 export { default as AIChatSession } from './AIChatSession.js';
+export { default as Settings } from './Settings.js';

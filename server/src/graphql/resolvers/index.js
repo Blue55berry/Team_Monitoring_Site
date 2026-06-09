@@ -9,6 +9,7 @@ import leaveResolvers from './leaveResolvers.js';
 import notificationResolvers from './notificationResolvers.js';
 import dashboardResolvers from './dashboardResolvers.js';
 import aiResolvers from './aiResolvers.js';
+import settingsResolvers from './settingsResolvers.js';
 
 // Merge all resolvers
 const mergeResolvers = (...resolverArrays) => {
@@ -44,7 +45,8 @@ const resolvers = mergeResolvers(
   leaveResolvers,
   notificationResolvers,
   dashboardResolvers,
-  aiResolvers
+  aiResolvers,
+  settingsResolvers
 );
 
 export default resolvers;
