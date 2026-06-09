@@ -3,7 +3,7 @@ import { GET_TODAY_ATTENDANCE, GET_MY_ATTENDANCE, CHECK_IN, CHECK_OUT, GET_ATTEN
 import { useAuth } from '../context/AuthContext';
 import { Clock, LogIn, LogOut, Calendar, CheckCircle, XCircle, AlertTriangle, Building2, Search, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import toast from 'react-hot-toast';
 import { useState, useEffect } from 'react';
 
@@ -25,6 +25,7 @@ const AdminAttendanceView = () => {
   const [selectedDept, setSelectedDept] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [selectedRecord, setSelectedRecord] = useState(null);
 
   const year = parseInt(selectedMonth.split('-')[0]);
   const month = parseInt(selectedMonth.split('-')[1]) - 1;
@@ -61,7 +62,7 @@ const AdminAttendanceView = () => {
       employeeMap[empId] = { employee: record.employee, records: {} };
     }
     const day = new Date(parseInt(record.date) || record.date).getDate();
-    employeeMap[empId].records[day] = record.status;
+    employeeMap[empId].records[day] = record;
   });
   const employeeRows = Object.values(employeeMap);
 
@@ -74,7 +75,8 @@ const AdminAttendanceView = () => {
       const empName = `${row.employee?.userId?.firstName} ${row.employee?.userId?.lastName}`;
       const dept = row.employee?.department?.name || 'N/A';
       const daysData = daysArray.map(d => {
-        const s = row.records[d];
+        const rec = row.records[d];
+        const s = rec?.status;
         if (s === 'present') return 'P';
         if (s === 'late') return 'L';
         if (s === 'absent') return 'A';
@@ -85,7 +87,7 @@ const AdminAttendanceView = () => {
       return [empName, dept, ...daysData];
     });
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: 25,
       head,
       body,
@@ -115,7 +117,7 @@ const AdminAttendanceView = () => {
       r.status
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: 25,
       head: [['Date', 'Check In', 'Check Out', 'Hours', 'Status']],
       body: tableData,
@@ -201,8 +203,8 @@ const AdminAttendanceView = () => {
               <tbody>
                 {employeeRows.length > 0 ? employeeRows.map((row, i) => {
                   const emp = row.employee;
-                  const presentCount = daysArray.filter(d => row.records[d] === 'present').length;
-                  const lateCount = daysArray.filter(d => row.records[d] === 'late').length;
+                  const presentCount = daysArray.filter(d => row.records[d]?.status === 'present').length;
+                  const lateCount = daysArray.filter(d => row.records[d]?.status === 'late').length;
                   const totalWorking = presentCount + lateCount;
                   
                   return (
@@ -218,19 +220,33 @@ const AdminAttendanceView = () => {
                         </span>
                       </td>
                       {daysArray.map(d => {
-                        const status = row.records[d];
+                        const rec = row.records[d];
+                        const status = rec?.status;
                         const current = isToday(d);
                         let colorClass = 'bg-surface-100 dark:bg-surface-800';
                         let title = 'No Record';
                         if (status === 'present') { colorClass = 'bg-success'; title = 'Present'; }
                         else if (status === 'late') { colorClass = 'bg-warning'; title = 'Late'; }
-                        else if (status === 'absent') { colorClass = 'bg-danger'; title = 'Absent'; }
+                        else if (status === 'absent') { 
+                          colorClass = 'bg-danger'; 
+                          title = rec?.location?.lat ? `Absent (Checked in outside boundary: ${rec.location.lat.toFixed(4)}, ${rec.location.lng.toFixed(4)})` : 'Absent'; 
+                        }
                         else if (status === 'half-day') { colorClass = 'bg-info'; title = 'Half Day'; }
                         else if (status === 'leave') { colorClass = 'bg-accent-500'; title = 'On Leave'; }
 
                         return (
                           <td key={d} className={`py-2 px-1 text-center ${current ? 'bg-primary-50/30 dark:bg-primary-900/10 border-l border-r border-primary-100 dark:border-primary-800/30' : ''}`}>
-                            <div className={`w-5 h-5 mx-auto rounded-full ${colorClass} transition-transform hover:scale-125 cursor-pointer shadow-sm ${current && status === undefined ? 'border border-primary-300 dark:border-primary-600' : ''}`} title={`${new Date(year, month, d).toDateString()} - ${title}`} />
+                            <div 
+                              onClick={() => {
+                                if (rec) {
+                                  setSelectedRecord({ ...rec, empName: `${emp.userId.firstName} ${emp.userId.lastName}` });
+                                }
+                              }}
+                              className={`w-5 h-5 mx-auto rounded-full ${colorClass} transition-transform hover:scale-125 cursor-pointer shadow-sm flex items-center justify-center ${current && status === undefined ? 'border border-primary-300 dark:border-primary-600' : ''}`} 
+                              title={`${new Date(year, month, d).toDateString()} - ${title} (Click for details)`}
+                            >
+                              {status === 'absent' && rec?.location?.lat && <span className="text-[8px] text-white font-bold">L</span>}
+                            </div>
                           </td>
                         );
                       })}
@@ -255,6 +271,103 @@ const AdminAttendanceView = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Record Details Modal */}
+      {selectedRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedRecord(null)}>
+          <div className="bg-white dark:bg-surface-800 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-surface-900 dark:text-white">Attendance Details</h3>
+              <button onClick={() => setSelectedRecord(null)} className="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200">
+                <XCircle size={24} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-surface-500 uppercase font-semibold">Employee</p>
+                <p className="text-surface-900 dark:text-white font-medium">{selectedRecord.empName}</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-surface-500 uppercase font-semibold">Date</p>
+                  <p className="text-surface-900 dark:text-white font-medium">{new Date(parseInt(selectedRecord.date) || selectedRecord.date).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-surface-500 uppercase font-semibold">Status</p>
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 mt-1 rounded-full text-xs font-bold uppercase ${STATUS_CONFIG[selectedRecord.status]?.bg}`} style={{ color: STATUS_CONFIG[selectedRecord.status]?.color }}>
+                    {selectedRecord.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 bg-surface-50 dark:bg-surface-900/50 p-4 rounded-xl">
+                <div>
+                  <p className="text-xs text-surface-500 uppercase font-semibold mb-1">Check In</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-surface-900 dark:text-white font-mono">{formatTime(selectedRecord.checkIn)}</p>
+                    {selectedRecord.checkIn && (
+                      <span title={selectedRecord.checkInDevice === 'mobile' ? 'Mobile App' : 'Web Portal'} className="text-xs">
+                        {selectedRecord.checkInDevice === 'mobile' ? '📱' : '💻'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-surface-500 uppercase font-semibold mb-1">Check Out</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-surface-900 dark:text-white font-mono">{formatTime(selectedRecord.checkOut)}</p>
+                    {selectedRecord.checkOut && (
+                      <span title={selectedRecord.checkOutDevice === 'mobile' ? 'Mobile App' : 'Web Portal'} className="text-xs">
+                        {selectedRecord.checkOutDevice === 'mobile' ? '📱' : '💻'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-surface-500 uppercase font-semibold">Hours Worked</p>
+                  <p className="text-surface-900 dark:text-white font-medium">{selectedRecord.workHours?.toFixed(2) || '0.00'} hrs</p>
+                </div>
+                <div>
+                  <p className="text-xs text-surface-500 uppercase font-semibold">Missing/Outside Hours</p>
+                  <p className="text-danger font-medium font-mono">
+                    {Math.max(0, 8 - (selectedRecord.workHours || 0)).toFixed(2)} hrs
+                  </p>
+                </div>
+              </div>
+
+              {selectedRecord.location?.lat && (
+                <div className="p-4 bg-danger/10 border border-danger/20 rounded-xl">
+                  <p className="text-xs text-danger uppercase font-bold mb-1 flex items-center gap-1">
+                    <AlertTriangle size={14} /> Recorded Location (Outside Geofence)
+                  </p>
+                  <p className="text-sm font-mono text-danger">Lat: {selectedRecord.location.lat}</p>
+                  <p className="text-sm font-mono text-danger">Lng: {selectedRecord.location.lng}</p>
+                  <a 
+                    href={`https://www.google.com/maps/search/?api=1&query=${selectedRecord.location.lat},${selectedRecord.location.lng}`} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="inline-block mt-2 text-xs font-bold text-danger hover:underline"
+                  >
+                    View on Google Maps →
+                  </a>
+                </div>
+              )}
+
+              {selectedRecord.notes && (
+                <div>
+                  <p className="text-xs text-surface-500 uppercase font-semibold mb-1">Notes</p>
+                  <p className="text-sm text-surface-700 dark:text-surface-300 italic">"{selectedRecord.notes}"</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -305,7 +418,7 @@ const EmployeeAttendanceView = () => {
 
   const handleCheckIn = async () => {
     try {
-      await checkIn({ variables: { notes: notes || undefined } });
+      await checkIn({ variables: { notes: notes || undefined, device: 'web' } });
       toast.success('Checked in successfully! ✅');
       setNotes('');
       refetchToday();
@@ -314,7 +427,7 @@ const EmployeeAttendanceView = () => {
 
   const handleCheckOut = async () => {
     try {
-      await checkOut();
+      await checkOut({ variables: { device: 'web' } });
       toast.success('Checked out! Have a great evening 🌅');
       refetchToday();
     } catch (err) { toast.error(err.message); }

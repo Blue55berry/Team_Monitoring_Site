@@ -11,7 +11,7 @@ const STATUS_BG = { pending: 'bg-warning/10 text-warning', approved: 'bg-success
 const LeavesPage = () => {
   const { user } = useAuth();
   // Allow HR and Managers/Leaders to approve leaves. Prevent Admin.
-  const canApproveLeaves = ['team_manager', 'manager', 'team_leader', 'leader', 'hr'].includes(user?.role?.toLowerCase());
+  const canApproveLeaves = ['admin', 'team_manager', 'manager', 'team_leader', 'leader', 'hr'].includes(user?.role?.toLowerCase());
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ type: 'casual', startDate: '', endDate: '', reason: '' });
 

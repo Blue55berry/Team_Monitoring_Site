@@ -211,7 +211,9 @@ const typeDefs = `#graphql
     employee: Employee!
     date: String!
     checkIn: String
+    checkInDevice: String
     checkOut: String
+    checkOutDevice: String
     status: AttendanceStatus!
     workHours: Float
     overtime: Float
@@ -585,8 +587,8 @@ const typeDefs = `#graphql
     reorderTasks(projectId: ID!, taskIds: [ID!]!): Boolean!
     
     # Attendance
-    checkIn(notes: String, location: LocationInput): Attendance!
-    checkOut: Attendance!
+    checkIn(notes: String, location: LocationInput, device: String): Attendance!
+    checkOut(device: String): Attendance!
     recordAttendance(input: AttendanceInput!): Attendance!
     
     # Clients

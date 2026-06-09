@@ -58,7 +58,7 @@ const attendanceResolvers = {
   },
 
   Mutation: {
-    checkIn: async (_, { notes, location }, { user }) => {
+    checkIn: async (_, { notes, location, device }, { user }) => {
       requireAuth(user);
       
       const employee = await Employee.findOne({ userId: user._id });
@@ -115,6 +115,7 @@ const attendanceResolvers = {
       });
       
       attendance.checkIn = now;
+      attendance.checkInDevice = device || 'web';
       attendance.status = status;
       if (notes) attendance.notes = notes;
       if (location) attendance.location = location;
@@ -125,7 +126,7 @@ const attendanceResolvers = {
         .populate({ path: 'employee', populate: { path: 'userId' } });
     },
     
-    checkOut: async (_, __, { user }) => {
+    checkOut: async (_, { device }, { user }) => {
       requireAuth(user);
       
       const employee = await Employee.findOne({ userId: user._id });
@@ -150,6 +151,7 @@ const attendanceResolvers = {
       }
       
       attendance.checkOut = new Date();
+      attendance.checkOutDevice = device || 'web';
       await attendance.save(); // This triggers work hours calculation
       
       return Attendance.findById(attendance._id)

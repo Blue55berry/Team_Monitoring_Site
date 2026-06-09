@@ -13,8 +13,17 @@ const attendanceSchema = new mongoose.Schema({
   checkIn: {
     type: Date
   },
+  checkInDevice: {
+    type: String,
+    enum: ['mobile', 'web'],
+    default: 'web'
+  },
   checkOut: {
     type: Date
+  },
+  checkOutDevice: {
+    type: String,
+    enum: ['mobile', 'web']
   },
   status: {
     type: String,
@@ -44,6 +53,10 @@ const attendanceSchema = new mongoose.Schema({
 
 // Compound index to prevent duplicate attendance per day
 attendanceSchema.index({ employee: 1, date: 1 }, { unique: true });
+
+// Optimize read queries for concurrent 300+ user traffic and admin dashboard
+attendanceSchema.index({ date: 1 });
+attendanceSchema.index({ status: 1 });
 
 // Auto-calculate work hours
 attendanceSchema.pre('save', function(next) {

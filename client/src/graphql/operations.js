@@ -254,19 +254,20 @@ export const GET_TODAY_ATTENDANCE = gql`
 `;
 
 export const CHECK_IN = gql`
-  mutation CheckIn($notes: String) {
-    checkIn(notes: $notes) { id date checkIn status }
+  mutation CheckIn($notes: String, $device: String) {
+    checkIn(notes: $notes, device: $device) { id date checkIn status }
   }
 `;
 
 export const CHECK_OUT = gql`
-  mutation CheckOut { checkOut { id date checkOut status workHours overtime } }
+  mutation CheckOut($device: String) { checkOut(device: $device) { id date checkOut status workHours overtime } }
 `;
 
 export const GET_ATTENDANCE_RECORDS = gql`
   query AttendanceRecords($employee: ID, $startDate: String, $endDate: String) {
     attendanceRecords(employee: $employee, startDate: $startDate, endDate: $endDate) {
-      id date checkIn checkOut status workHours overtime notes
+      id date checkIn checkOut checkInDevice checkOutDevice status workHours overtime notes
+      location { lat lng address }
       employee { id employeeId userId { firstName lastName } department { id name color } }
     }
   }

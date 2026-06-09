@@ -21,7 +21,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow AntiGravity to use Face ID to verify your identity for attendance check-ins."
+        }
+      ]
     ]
   }
 }
