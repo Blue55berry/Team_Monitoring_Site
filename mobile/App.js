@@ -1,17 +1,46 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import * as Location from 'expo-location';
+import * as SecureStore from 'expo-secure-store';
 import Modal from 'react-native-modal';
 import { ApolloClient, InMemoryCache, gql, HttpLink } from '@apollo/client';
+import { setContext } from '@apollo/client/link/context';
 import { ApolloProvider, useMutation } from '@apollo/client/react';
 
+// Configure Apollo Client for GraphQL with Auth Link
+const httpLink = new HttpLink({
+  uri: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.70.153:4000/graphql',
+});
+
+const authLink = setContext(async (_, { headers }) => {
+  // Retrieve the auth token from high security storage
+  const token = await SecureStore.getItemAsync('accessToken');
+  return {
+    headers: {
+      ...headers,
+      authorization: token ? `Bearer ${token}` : "",
+    }
+  }
+});
+
 const client = new ApolloClient({
-  // Use EXPO_PUBLIC_API_URL or fallback to local IP
-  link: new HttpLink({
-    uri: process.env.EXPO_PUBLIC_API_URL || 'http://10.137.173.153:4000/graphql',
-  }),
+  link: authLink.concat(httpLink),
   cache: new InMemoryCache(),
 });
+
+const LOGIN_MUTATION = gql`
+  mutation Login($input: LoginInput!) {
+    login(input: $input) {
+      accessToken
+      refreshToken
+      user {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`;
 
 const CHECK_IN_MUTATION = gql`
   mutation CheckIn($notes: String, $location: LocationInput) {
@@ -23,7 +52,83 @@ const CHECK_IN_MUTATION = gql`
   }
 `;
 
-function AttendanceScreen() {
+function LoginScreen({ onLoginSuccess }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginMutation, { loading }] = useMutation(LOGIN_MUTATION);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in both email and password.');
+      return;
+    }
+
+    try {
+      const { data } = await loginMutation({
+        variables: { input: { email: email.trim(), password } }
+      });
+
+      if (data?.login?.accessToken) {
+        // High security token storage
+        await SecureStore.setItemAsync('accessToken', data.login.accessToken);
+        if (data.login.refreshToken) {
+          await SecureStore.setItemAsync('refreshToken', data.login.refreshToken);
+        }
+        Alert.alert('Success', `Welcome back, ${data.login.user.firstName}!`);
+        onLoginSuccess();
+      }
+    } catch (err) {
+      Alert.alert('Login Failed', err.message || 'Invalid credentials or server error.');
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.loginBox}>
+        <Text style={styles.title}>Welcome Back</Text>
+        <Text style={styles.subtitle}>Sign in to your Xenocoders account</Text>
+        
+        <TextInput
+          style={styles.input}
+          placeholder="Email Address"
+          placeholderTextColor="#999"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          editable={!loading}
+        />
+        
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor="#999"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          editable={!loading}
+        />
+
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Sign In</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+function AttendanceScreen({ onLogout }) {
   const [locationOffModal, setLocationOffModal] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
 
@@ -87,7 +192,6 @@ function AttendanceScreen() {
         errorMessage = 'Network connection failed. Please check your internet and try again.';
       } else if (isGraphQLError) {
         // We only expose generic or known safe messages from our GraphQL server
-        // Replace this with specific error code checks if your server provides them
         errorMessage = 'Failed to process check-in request with the server.';
       }
       
@@ -95,8 +199,19 @@ function AttendanceScreen() {
     }
   };
 
+  const handleLogout = async () => {
+    await SecureStore.deleteItemAsync('accessToken');
+    await SecureStore.deleteItemAsync('refreshToken');
+    client.clearStore(); // Clear apollo cache for security
+    onLogout();
+  };
+
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutText}>Log Out</Text>
+      </TouchableOpacity>
+
       <Text style={styles.title}>Employee Attendance</Text>
 
       <TouchableOpacity
@@ -138,10 +253,45 @@ function AttendanceScreen() {
   );
 }
 
+function MainApp() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const token = await SecureStore.getItemAsync('accessToken');
+        if (token) {
+          setIsAuthenticated(true);
+        }
+      } catch (e) {
+        console.error("Auth check failed", e);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    checkAuth();
+  }, []);
+
+  if (isInitializing) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+      </View>
+    );
+  }
+
+  return isAuthenticated ? (
+    <AttendanceScreen onLogout={() => setIsAuthenticated(false)} />
+  ) : (
+    <LoginScreen onLoginSuccess={() => setIsAuthenticated(true)} />
+  );
+}
+
 export default function App() {
   return (
     <ApolloProvider client={client}>
-      <AttendanceScreen />
+      <MainApp />
     </ApolloProvider>
   );
 }
@@ -154,11 +304,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
   },
+  loginBox: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: 'white',
+    padding: 24,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
+    elevation: 5,
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#1a1a1a',
-    marginBottom: 40,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 15,
+    color: '#666',
+    marginBottom: 32,
+    textAlign: 'center',
+  },
+  input: {
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    fontSize: 16,
+    color: '#1a1a1a',
   },
   button: {
     backgroundColor: '#4CAF50',
@@ -172,6 +351,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     minWidth: 200,
     alignItems: 'center',
+    marginTop: 16,
   },
   buttonDisabled: {
     backgroundColor: '#A5D6A7',
@@ -181,16 +361,23 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
+  logoutButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    padding: 10,
+    backgroundColor: '#ffebee',
+    borderRadius: 8,
+  },
+  logoutText: {
+    color: '#d32f2f',
+    fontWeight: 'bold',
+  },
   modalContent: {
     backgroundColor: 'white',
     padding: 24,
     borderRadius: 20,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 10,
   },
   iconContainer: {
     width: 60,
