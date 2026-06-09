@@ -31,7 +31,7 @@ const employeeResolvers = {
     createEmployee: async (_, { input }, { user }) => {
       requireAdminOrHR(user);
       
-      const { firstName, lastName, email, password, designation, department, salary, joiningDate, skills, workType, bio, phone, role } = input;
+      const { firstName, lastName, email, password, designation, department, salary, joiningDate, skills, workType, bio, phone, role, assignedLocation } = input;
 
       // Create user account first if no userId provided
       let userId = input.userId;
@@ -78,7 +78,8 @@ const employeeResolvers = {
         joiningDate: joiningDate || new Date(),
         skills: skills || [],
         workType: workType || 'office',
-        bio
+        bio,
+        assignedLocation
       });
 
       await employee.save();
@@ -125,6 +126,7 @@ const employeeResolvers = {
       if (input.skills) employeeUpdate.skills = input.skills;
       if (input.workType) employeeUpdate.workType = input.workType;
       if (input.bio !== undefined) employeeUpdate.bio = input.bio;
+      if (input.assignedLocation !== undefined) employeeUpdate.assignedLocation = input.assignedLocation;
 
       const updated = await Employee.findByIdAndUpdate(id, employeeUpdate, { new: true })
         .populate('userId')

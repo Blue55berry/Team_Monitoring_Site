@@ -41,9 +41,8 @@ const navItems = [
   { path: '/ai-assistant', icon: Bot, label: 'AI Assistant', roles: ['admin', 'hr', 'team_manager', 'manager', 'team_leader', 'leader', 'account', 'accounts'] },
 ];
 
-const Sidebar = () => {
+const Sidebar = ({ collapsed, onToggle }) => {
   const { user, logout } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
@@ -55,21 +54,29 @@ const Sidebar = () => {
       ${collapsed ? 'w-[72px]' : 'w-[260px]'}
       bg-white dark:bg-surface-900 border-r border-surface-200 dark:border-surface-800`}
     >
+      {/* Toggle Button */}
+      <button
+        onClick={onToggle}
+        className="absolute -right-3.5 top-5 bg-gradient-to-br from-primary-500 to-accent-500 text-white border-2 border-white dark:border-surface-900 w-7 h-7 rounded-full flex items-center justify-center z-50 cursor-pointer shadow-md transition-transform hover:scale-110"
+      >
+        {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+      </button>
+
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-16 border-b border-surface-200 dark:border-surface-800">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-bold text-sm">WI</span>
+          <span className="text-white font-bold text-sm">XC</span>
         </div>
         {!collapsed && (
-          <div className="animate-fade-in">
-            <h1 className="font-bold text-sm text-surface-900 dark:text-white leading-tight">WorkForce</h1>
+          <div className="animate-fade-in overflow-hidden whitespace-nowrap">
+            <h1 className="font-bold text-sm text-surface-900 dark:text-white leading-tight">Xenocoders</h1>
             <p className="text-[10px] text-surface-400 font-medium">Intelligence Platform</p>
           </div>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      <nav className={`flex-1 py-4 px-3 space-y-1 ${collapsed ? 'overflow-visible' : 'overflow-y-auto'}`}>
         {filteredNav.map(item => {
           const hasSubItems = item.subItems && item.subItems.length > 0;
           const isPathActive = location.pathname.startsWith(item.path);
@@ -84,7 +91,7 @@ const Sidebar = () => {
 
           if (hasSubItems) {
             return (
-              <div key={item.path} className="flex flex-col">
+              <div key={item.path} className="flex flex-col relative group">
                 <div 
                   onClick={handleToggle}
                   className={`sidebar-link cursor-pointer ${isPathActive ? 'active' : ''} ${collapsed ? 'justify-center px-2' : ''}`}
@@ -114,6 +121,24 @@ const Sidebar = () => {
                     })}
                   </div>
                 )}
+                {/* Hover Popout for Collapsed State */}
+                {collapsed && (
+                  <div className="absolute left-full top-0 ml-4 hidden group-hover:flex flex-col bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-xl shadow-xl w-48 p-2 z-50">
+                     <div className="px-3 py-2 text-xs font-bold text-surface-400 uppercase tracking-wider mb-1 border-b border-surface-100 dark:border-surface-700">{item.label}</div>
+                     {item.subItems.map(sub => {
+                       const isActive = location.pathname + location.search === sub.path || (location.pathname === sub.path && location.search === '' && sub.path.indexOf('?') === -1);
+                       return (
+                         <NavLink
+                           key={sub.path}
+                           to={sub.path}
+                           className={`px-3 py-2 text-sm rounded-lg transition-colors ${isActive ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 font-medium' : 'text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white hover:bg-surface-50 dark:hover:bg-surface-800/50'}`}
+                         >
+                           {sub.label}
+                         </NavLink>
+                       );
+                     })}
+                  </div>
+                )}
               </div>
             );
           }
@@ -135,20 +160,13 @@ const Sidebar = () => {
       </nav>
 
       {/* User & Collapse */}
-      <div className="border-t border-surface-200 dark:border-surface-800 p-3 space-y-2">
+      <div className="border-t border-surface-200 dark:border-surface-800 p-3">
         <button
           onClick={logout}
-          className={`sidebar-link w-full text-danger hover:bg-red-50 dark:hover:bg-red-900/20 ${collapsed ? 'justify-center px-2' : ''}`}
+          className={`sidebar-link w-full text-danger bg-red-100 hover:bg-red-50 dark:hover:bg-red-900/20 ${collapsed ? 'justify-center px-2' : ''}`}
         >
           <LogOut size={20} />
           {!collapsed && <span>Sign Out</span>}
-        </button>
-
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="w-full flex items-center justify-center p-2 rounded-lg text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-        >
-          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
       </div>
     </aside>

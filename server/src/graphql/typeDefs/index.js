@@ -110,6 +110,7 @@ const typeDefs = `#graphql
     manager: Employee
     workType: WorkType
     bio: String
+    assignedLocation: AssignedLocation
     attendanceSummary: AttendanceSummary
     createdAt: String!
     updatedAt: String!
@@ -222,6 +223,13 @@ const typeDefs = `#graphql
   type Location {
     lat: Float
     lng: Float
+    address: String
+  }
+
+  type AssignedLocation {
+    lat: Float
+    lng: Float
+    radius: Float
     address: String
   }
 
@@ -371,6 +379,7 @@ const typeDefs = `#graphql
     bio: String
     phone: String
     role: Role
+    assignedLocation: AssignedLocationInput
   }
 
   input SalaryInput {
@@ -445,6 +454,19 @@ const typeDefs = `#graphql
     checkOut: String
     status: AttendanceStatus
     notes: String
+  }
+
+  input LocationInput {
+    lat: Float!
+    lng: Float!
+    address: String
+  }
+
+  input AssignedLocationInput {
+    lat: Float!
+    lng: Float!
+    radius: Float
+    address: String
   }
 
   input ClientInput {
@@ -531,6 +553,8 @@ const typeDefs = `#graphql
     register(input: RegisterInput!): AuthPayload!
     login(input: LoginInput!): AuthPayload!
     refreshToken(token: String!): AuthPayload!
+    forgotPassword(email: String!): String!
+    resetPassword(email: String!, code: String!, newPassword: String!): Boolean!
     
     # Employees
     createEmployee(input: EmployeeInput!): Employee!
@@ -558,7 +582,7 @@ const typeDefs = `#graphql
     reorderTasks(projectId: ID!, taskIds: [ID!]!): Boolean!
     
     # Attendance
-    checkIn(notes: String): Attendance!
+    checkIn(notes: String, location: LocationInput): Attendance!
     checkOut: Attendance!
     recordAttendance(input: AttendanceInput!): Attendance!
     

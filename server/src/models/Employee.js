@@ -57,6 +57,15 @@ const employeeSchema = new mongoose.Schema({
   bio: {
     type: String,
     maxlength: 500
+  },
+  assignedLocation: {
+    lat: Number,
+    lng: Number,
+    radius: {
+      type: Number,
+      default: 100 // Default 100 meters
+    },
+    address: String
   }
 }, {
   timestamps: true

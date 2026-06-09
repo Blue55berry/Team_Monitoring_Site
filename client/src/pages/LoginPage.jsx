@@ -2,16 +2,25 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Eye, EyeOff, ArrowRight, Sparkles, Sun, Moon } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, Sparkles, Sun, Moon, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useMutation } from '@apollo/client/react';
+import { FORGOT_PASSWORD, RESET_PASSWORD } from '../graphql/operations';
 
 const LoginPage = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [resetMode, setResetMode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', password: '', role: 'employee'
   });
+
+  const [forgotPassword] = useMutation(FORGOT_PASSWORD);
+  const [resetPassword] = useMutation(RESET_PASSWORD);
 
   const { login, register } = useAuth();
   const { isDark, toggle } = useTheme();
@@ -39,6 +48,37 @@ const LoginPage = () => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!form.email) return toast.error("Please enter your email");
+    setLoading(true);
+    try {
+      await forgotPassword({ variables: { email: form.email } });
+      toast.success("Reset code sent! Check your email (or server logs for Ethereal URL)");
+      setCodeSent(true);
+    } catch (err) {
+      toast.error(err.message || 'Failed to send code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await resetPassword({ variables: { email: form.email, code: resetCode, newPassword } });
+      toast.success("Password reset successful! You can now login.");
+      setResetMode(false);
+      setCodeSent(false);
+      setForm({ ...form, password: newPassword });
+    } catch (err) {
+      toast.error(err.message || 'Failed to reset password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex bg-surface-50 dark:bg-surface-950 transition-colors">
       {/* Left Panel - Branding */}
@@ -56,8 +96,8 @@ const LoginPage = () => {
               <Sparkles className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-bold">WorkForce Intelligence</h2>
-              <p className="text-sm text-white/60">AI-Powered Management</p>
+              <h2 className="text-xl font-bold">Xenocoders</h2>
+              <p className="text-sm text-white/60">Future Bright</p>
             </div>
           </div>
           
@@ -97,63 +137,105 @@ const LoginPage = () => {
         <div className="w-full max-w-md animate-fade-in">
           <div className="lg:hidden flex items-center gap-3 mb-8">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center">
-              <span className="text-white font-bold">WI</span>
+              <span className="text-white font-bold">XC</span>
             </div>
-            <h2 className="text-lg font-bold text-surface-900 dark:text-white">WorkForce Intelligence</h2>
+            <h2 className="text-lg font-bold text-surface-900 dark:text-white">Xenocoders</h2>
           </div>
 
           <h3 className="text-2xl font-bold text-surface-900 dark:text-white mb-2">
-            {isLogin ? 'Welcome back' : 'Create account'}
+            {resetMode ? 'Reset Password' : isLogin ? 'Welcome back' : 'Create account'}
           </h3>
           <p className="text-surface-400 mb-8">
-            {isLogin ? 'Enter your credentials to access your workspace' : 'Start managing your team with AI power'}
+            {resetMode 
+              ? codeSent ? 'Enter the code sent to your email and your new password' : 'Enter your email to receive a password reset code'
+              : isLogin ? 'Enter your credentials to access your workspace' : 'Start managing your team with AI power'}
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="flex gap-3 animate-slide-up">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">First Name</label>
-                  <input name="firstName" value={form.firstName} onChange={handleChange} className="input-field" placeholder="John" required />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Last Name</label>
-                  <input name="lastName" value={form.lastName} onChange={handleChange} className="input-field" placeholder="Doe" required />
-                </div>
+          {resetMode ? (
+            <form onSubmit={codeSent ? handleResetPassword : handleForgotPassword} className="space-y-4 animate-fade-in">
+              <div>
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Email</label>
+                <input type="email" name="email" value={form.email} onChange={handleChange} disabled={codeSent} className="input-field disabled:opacity-50" placeholder="you@company.com" required />
               </div>
-            )}
 
-            <div>
-              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Email</label>
-              <input type="email" name="email" value={form.email} onChange={handleChange} className="input-field" placeholder="you@company.com" required />
-            </div>
-
-            <div className="relative">
-              <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Password</label>
-              <input type={showPassword ? 'text' : 'password'} name="password" value={form.password} onChange={handleChange} className="input-field pr-10" placeholder="••••••••" required minLength={6} />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[38px] text-surface-400">
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-
-            <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 mt-2">
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>{isLogin ? 'Sign In' : 'Create Account'} <ArrowRight size={18} /></>
+              {codeSent && (
+                <>
+                  <div className="animate-slide-up">
+                    <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Reset Code</label>
+                    <input type="text" value={resetCode} onChange={e => setResetCode(e.target.value)} className="input-field" placeholder="123456" required />
+                  </div>
+                  <div className="relative animate-slide-up">
+                    <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">New Password</label>
+                    <input type={showPassword ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)} className="input-field pr-10" placeholder="••••••••" required minLength={6} />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[38px] text-surface-400">
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </>
               )}
-            </button>
-          </form>
+
+              <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 mt-2">
+                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>{codeSent ? 'Update Password' : 'Send Reset Code'} <ArrowRight size={18} /></>}
+              </button>
+              
+              <button type="button" onClick={() => { setResetMode(false); setCodeSent(false); }} className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-surface-500 hover:text-surface-900 dark:text-surface-400 dark:hover:text-white transition-colors mt-4">
+                <ArrowLeft size={16} /> Back to Login
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in">
+              {!isLogin && (
+                <div className="flex gap-3 animate-slide-up">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">First Name</label>
+                    <input name="firstName" value={form.firstName} onChange={handleChange} className="input-field" placeholder="John" required />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Last Name</label>
+                    <input name="lastName" value={form.lastName} onChange={handleChange} className="input-field" placeholder="Doe" required />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-surface-700 dark:text-surface-300 mb-1.5">Email</label>
+                <input type="email" name="email" value={form.email} onChange={handleChange} className="input-field" placeholder="you@company.com" required />
+              </div>
+
+              <div className="relative">
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-sm font-medium text-surface-700 dark:text-surface-300">Password</label>
+                  {isLogin && (
+                    <button type="button" onClick={() => setResetMode(true)} className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 hover:underline transition-all">
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <input type={showPassword ? 'text' : 'password'} name="password" value={form.password} onChange={handleChange} className="input-field pr-10" placeholder="••••••••" required minLength={6} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[38px] text-surface-400 hover:text-surface-600 dark:hover:text-surface-200 transition-colors">
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+
+              <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 mt-2">
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>{isLogin ? 'Sign In' : 'Create Account'} <ArrowRight size={18} /></>
+                )}
+              </button>
+            </form>
+          )}
 
           {isLogin && (
             <div className="mt-6 p-4 rounded-xl bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800/30">
               <p className="text-xs font-semibold text-primary-700 dark:text-primary-300 mb-2">Demo Credentials</p>
               <div className="space-y-1 text-xs text-primary-600 dark:text-primary-400">
-                <p><span className="font-medium">Admin:</span> admin@workforce.com</p>
-                <p><span className="font-medium">HR:</span> sarah@workforce.com</p>
-                <p><span className="font-medium">Manager:</span> james@workforce.com</p>
-                <p><span className="font-medium">Team Lead:</span> team_leader@workforce.com</p>
-                <p><span className="font-medium">Account:</span> account@workforce.com</p>
+                <p><span className="font-medium">Admin:</span> admin@xenocoders.com</p>
+                <p><span className="font-medium">HR:</span> sarah@xenocoders.com</p>
+                <p><span className="font-medium">Manager:</span> james@xenocoders.com</p>
+                <p><span className="font-medium">Team Lead:</span> team_leader@xenocoders.com</p>
+                <p><span className="font-medium">Account:</span> account@xenocoders.com</p>
                 <p><span className="font-medium">Password:</span> password123</p>
               </div>
             </div>

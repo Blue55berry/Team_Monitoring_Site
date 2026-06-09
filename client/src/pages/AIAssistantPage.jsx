@@ -78,7 +78,7 @@ const AIAssistantPage = () => {
     setRandomQueries(shuffled.slice(0, 4));
   }, []);
   
-  const initialMessage = { role: 'assistant', content: "👋 Hello! I'm your AI Workforce Intelligence Assistant. I can help you find information about employees, projects, tasks, clients, and more. Try asking me a question!", timestamp: new Date(), isTyping: false };
+  const initialMessage = { role: 'assistant', content: "👋 Hello! I'm your AI Xenocoders Intelligence Assistant. I can help you find information about employees, projects, tasks, clients, and more. Try asking me a question!", timestamp: new Date(), isTyping: false };
   const [messages, setMessages] = useState([initialMessage]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);

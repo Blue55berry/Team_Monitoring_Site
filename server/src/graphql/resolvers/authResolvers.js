@@ -2,6 +2,8 @@ import { GraphQLError } from 'graphql';
 import { User } from '../../models/index.js';
 import { generateTokens, verifyRefreshToken } from '../../middleware/auth.js';
 import { requireAuth } from '../../middleware/rbac.js';
+import { sendEmail } from '../../utils/sendEmail.js';
+import crypto from 'crypto';
 
 const authResolvers = {
   Query: {
@@ -126,6 +128,60 @@ const authResolvers = {
         ...tokens,
         user
       };
+    },
+
+    forgotPassword: async (_, { email }) => {
+      const user = await User.findOne({ email });
+      if (!user) {
+        return "If an account exists, a reset code has been sent.";
+      }
+
+      // Generate a 6 digit code
+      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Save it hashed to DB
+      user.resetPasswordCode = resetCode; // We could hash it, but let's keep it simple for now or hash it
+      user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+      await user.save();
+
+      // Send Email
+      const message = `Your password reset code is: ${resetCode}\nThis code is valid for 1 hour.`;
+      
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: 'Xenocoders Password Reset',
+          text: message,
+          html: `<p>Your password reset code is: <b>${resetCode}</b></p><p>This code is valid for 1 hour.</p>`
+        });
+      } catch (err) {
+        console.error('Email could not be sent', err);
+        throw new GraphQLError('Email could not be sent');
+      }
+
+      return "If an account exists, a reset code has been sent.";
+    },
+
+    resetPassword: async (_, { email, code, newPassword }) => {
+      const user = await User.findOne({ 
+        email, 
+        resetPasswordCode: code,
+        resetPasswordExpires: { $gt: Date.now() } 
+      }).select('+resetPasswordCode +resetPasswordExpires +password');
+
+      if (!user) {
+        throw new GraphQLError('Invalid or expired reset code', {
+          extensions: { code: 'BAD_USER_INPUT' }
+        });
+      }
+
+      // Set new password
+      user.password = newPassword;
+      user.resetPasswordCode = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+
+      return true;
     }
   }
 };

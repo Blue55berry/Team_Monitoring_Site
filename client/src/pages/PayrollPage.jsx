@@ -69,7 +69,7 @@ const PayrollPage = () => {
     const pdfFormatCurrency = (val) => 'Rs. ' + new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(val);
 
     doc.setFontSize(16);
-    doc.text('WorkForce Intelligence - Live Payroll Report', 14, 15);
+    doc.text('Xenocoders Intelligence - Live Payroll Report', 14, 15);
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleDateString()} | Net Disbursal: ${pdfFormatCurrency(metrics.netDisbursal)}`, 14, 22);

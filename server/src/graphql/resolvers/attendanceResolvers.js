@@ -57,7 +57,7 @@ const attendanceResolvers = {
   },
 
   Mutation: {
-    checkIn: async (_, { notes }, { user }) => {
+    checkIn: async (_, { notes, location }, { user }) => {
       requireAuth(user);
       
       const employee = await Employee.findOne({ userId: user._id });
@@ -79,16 +79,38 @@ const attendanceResolvers = {
       }
       
       const now = new Date();
-      const isLate = now.getHours() >= 10; // After 10 AM is considered late
+      let status = now.getHours() >= 10 ? 'late' : 'present';
       
+      if (location && employee.assignedLocation && employee.assignedLocation.lat) {
+        const R = 6371e3; // metres
+        const lat1 = employee.assignedLocation.lat * Math.PI/180;
+        const lat2 = location.lat * Math.PI/180;
+        const dLat = (location.lat - employee.assignedLocation.lat) * Math.PI/180;
+        const dLng = (location.lng - employee.assignedLocation.lng) * Math.PI/180;
+
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1) * Math.cos(lat2) *
+                  Math.sin(dLng/2) * Math.sin(dLng/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const distance = R * c;
+        
+        const allowedRadius = employee.assignedLocation.radius || 100;
+        if (distance > allowedRadius) {
+           status = 'absent'; // Outside of location area
+        }
+      } else if (employee.assignedLocation && employee.assignedLocation.lat && !location) {
+        throw new GraphQLError('Location is required for check-in', { extensions: { code: 'BAD_USER_INPUT' } });
+      }
+
       const attendance = existing || new Attendance({
         employee: employee._id,
         date: today
       });
       
       attendance.checkIn = now;
-      attendance.status = isLate ? 'late' : 'present';
+      attendance.status = status;
       if (notes) attendance.notes = notes;
+      if (location) attendance.location = location;
       
       await attendance.save();
       
